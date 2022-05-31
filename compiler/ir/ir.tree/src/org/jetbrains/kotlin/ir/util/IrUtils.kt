@@ -444,7 +444,8 @@ fun irCall(
     receiversAsArguments: Boolean = false,
     argumentsAsReceivers: Boolean = false,
     newSuperQualifierSymbol: IrClassSymbol? = null,
-    newReturnType: IrType? = null
+    newReturnType: IrType? = null,
+    newTypeArgumentsCount: Int = call.typeArgumentsCount
 ): IrCall =
     call.run {
         IrCallImpl(
@@ -452,7 +453,7 @@ fun irCall(
             endOffset,
             newReturnType ?: type,
             newSymbol,
-            typeArgumentsCount,
+            newTypeArgumentsCount,
             valueArgumentsCount = newSymbol.owner.valueParameters.size,
             origin = origin,
             superQualifierSymbol = newSuperQualifierSymbol
@@ -460,7 +461,8 @@ fun irCall(
             copyTypeAndValueArgumentsFrom(
                 call,
                 receiversAsArguments,
-                argumentsAsReceivers
+                argumentsAsReceivers,
+                newTypeArgumentsCount - call.typeArgumentsCount
             )
         }
     }
@@ -468,9 +470,10 @@ fun irCall(
 fun IrMemberAccessExpression<IrFunctionSymbol>.copyTypeAndValueArgumentsFrom(
     src: IrMemberAccessExpression<IrFunctionSymbol>,
     receiversAsArguments: Boolean = false,
-    argumentsAsReceivers: Boolean = false
+    argumentsAsReceivers: Boolean = false,
+    typeArgumentsShift: Int = 0
 ) {
-    copyTypeArgumentsFrom(src)
+    copyTypeArgumentsFrom(src, typeArgumentsShift)
     copyValueArgumentsFrom(src, symbol.owner, receiversAsArguments, argumentsAsReceivers)
 }
 
