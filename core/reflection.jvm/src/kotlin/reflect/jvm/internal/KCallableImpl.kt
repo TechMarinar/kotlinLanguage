@@ -112,65 +112,80 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
         return if (isAnnotationConstructor) callAnnotationConstructor(args) else callDefaultMethod(args, null)
     }
 
+    private val _absentArguments = ReflectProperties.lazySoft {
+        val parameters = parameters
+        // arguments without masks and DefaultConstructorMarker or MethodHandle
+        val arguments = arrayOfNulls<Any?>(parameters.size + (if (isSuspend) 1 else 0))
+
+        // set absent values
+        parameters.forEach { parameter ->
+            if (parameter.isOptional && !parameter.type.isInlineClassType) {
+                // For inline class types, the javaType refers to the underlying type of the inline class,
+                // but we have to pass null in order to mark the argument as absent for InlineClassAwareCaller.
+                arguments[parameter.index] = defaultPrimitiveValue(parameter.type.javaType)
+            } else if (parameter.isVararg) {
+                arguments[parameter.index] = defaultEmptyArray(parameter.type)
+            }
+        }
+
+        arguments
+    }
+
+    private fun getAbsentArguments(): Array<Any?> = _absentArguments().clone()
+
     // See ArgumentGenerator#generate
     internal fun callDefaultMethod(args: Map<KParameter, Any?>, continuationArgument: Continuation<*>?): R {
         val parameters = parameters
-        val arguments = ArrayList<Any?>(parameters.size)
-        var mask = 0
-        val masks = ArrayList<Int>(1)
-        var index = 0
+
+        val arguments = getAbsentArguments().apply {
+            if (isSuspend) {
+                // continuationArgument is tail of arguments
+                this[parameters.size] = continuationArgument
+            }
+        }
+        val masks = IntArray((parameters.size + Integer.SIZE - 1) / Integer.SIZE)
+
+        var valueParameterIndex = 0
         var anyOptional = false
 
         for (parameter in parameters) {
-            if (index != 0 && index % Integer.SIZE == 0) {
-                masks.add(mask)
-                mask = 0
-            }
-
             when {
                 args.containsKey(parameter) -> {
-                    arguments.add(args[parameter])
+                    arguments[parameter.index] = args[parameter]
                 }
+                // Absent value is already set at _absentArguments
                 parameter.isOptional -> {
-                    // For inline class types, the javaType refers to the underlying type of the inline class,
-                    // but we have to pass null in order to mark the argument as absent for InlineClassAwareCaller.
-                    arguments.add(if (parameter.type.isInlineClassType) null else defaultPrimitiveValue(parameter.type.javaType))
-                    mask = mask or (1 shl (index % Integer.SIZE))
+                    val maskIndex = valueParameterIndex / Integer.SIZE
+                    masks[maskIndex] = masks[maskIndex] or (1 shl (valueParameterIndex % Integer.SIZE))
                     anyOptional = true
                 }
-                parameter.isVararg -> {
-                    arguments.add(defaultEmptyArray(parameter.type))
-                }
+                parameter.isVararg -> {}
                 else -> {
                     throw IllegalArgumentException("No argument provided for a required parameter: $parameter")
                 }
             }
 
             if (parameter.kind == KParameter.Kind.VALUE) {
-                index++
+                valueParameterIndex++
             }
         }
 
-        if (continuationArgument != null) {
-            arguments.add(continuationArgument)
-        }
-
         if (!anyOptional) {
-            return call(*arguments.toTypedArray())
+            return call(*arguments)
         }
-
-        masks.add(mask)
 
         val caller = defaultCaller ?: throw KotlinReflectionInternalError("This callable does not support a default call: $descriptor")
 
-        arguments.addAll(masks)
-
-        // DefaultConstructorMarker or MethodHandle
-        arguments.add(null)
-
         @Suppress("UNCHECKED_CAST")
         return reflectionCall {
-            caller.call(arguments.toTypedArray()) as R
+            // +1 is argument for DefaultConstructorMarker or MethodHandle
+            val mergedArgs = arrayOfNulls<Any?>(arguments.size + masks.size + 1)
+            System.arraycopy(arguments, 0, mergedArgs, 0, arguments.size)
+            for (i in masks.indices) {
+                mergedArgs[i + arguments.size] = masks[i]
+            }
+
+            caller.call(mergedArgs) as R
         }
     }
 
