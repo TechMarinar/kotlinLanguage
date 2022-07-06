@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.js.test.ir
 
 import org.jetbrains.kotlin.js.test.AbstractJsBlackBoxCodegenTestBase
 import org.jetbrains.kotlin.js.test.JsAdditionalSourceProvider
+import org.jetbrains.kotlin.js.test.converters.FirJsKlibBackendFacade
 import org.jetbrains.kotlin.js.test.converters.JsIrBackendFacade
 import org.jetbrains.kotlin.js.test.converters.JsKlibBackendFacade
 import org.jetbrains.kotlin.js.test.converters.incremental.RecompileModuleJsIrBackendFacade
@@ -21,6 +22,7 @@ import org.jetbrains.kotlin.test.directives.*
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2IrConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
+import org.jetbrains.kotlin.test.frontend.fir.Fir2IrJsResultsConverter
 import org.jetbrains.kotlin.test.frontend.fir.Fir2IrResultsConverter
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
@@ -177,7 +179,7 @@ private class SkipMultiModuleTestsMetaConfigurator(testServices: TestServices) :
     }
 }
 
-abstract class AbstractFirJsTest(
+open class AbstractFirJsTest(
     pathToTestDir: String = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/box/",
     testGroupOutputDirPrefix: String = "box/",
 ) : AbstractJsBlackBoxCodegenTestBase<FirOutputArtifact, IrBackendInput, BinaryArtifacts.KLib>(
@@ -187,10 +189,10 @@ abstract class AbstractFirJsTest(
         get() = ::FirFrontendFacade
 
     override val frontendToBackendConverter: Constructor<Frontend2BackendConverter<FirOutputArtifact, IrBackendInput>>
-        get() = ::Fir2IrResultsConverter
+        get() = ::Fir2IrJsResultsConverter
 
     override val backendFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.KLib>>
-        get() = ::JsKlibBackendFacade
+        get() = ::FirJsKlibBackendFacade
 
     override val afterBackendFacade: Constructor<AbstractTestFacade<BinaryArtifacts.KLib, BinaryArtifacts.Js>>?
         get() = ::JsIrBackendFacade
@@ -204,14 +206,13 @@ abstract class AbstractFirJsTest(
         super.configure(builder)
         with (builder) {
             defaultDirectives {
-                +ConfigurationDirectives.WITH_STDLIB
-                +LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
                 val runIc = getBoolean("kotlin.js.ir.icMode")
                 if (runIc) +JsEnvironmentConfigurationDirectives.RUN_IC
                 if (getBoolean("kotlin.js.ir.klibMainModule")) +JsEnvironmentConfigurationDirectives.KLIB_MAIN_MODULE
                 if (getBoolean("kotlin.js.ir.perModule", true)) +JsEnvironmentConfigurationDirectives.PER_MODULE
                 if (getBoolean("kotlin.js.ir.dce", true)) +JsEnvironmentConfigurationDirectives.RUN_IR_DCE
                 if (getBoolean("kotlin.js.ir.newIr2Js", true)) +JsEnvironmentConfigurationDirectives.RUN_NEW_IR_2_JS
+                +LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
                 -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
             }
 
