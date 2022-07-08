@@ -101,11 +101,11 @@ internal val dcePhase = makeKonanModuleOpPhase(
 
             val referencedFunctions = mutableSetOf<IrFunction>()
             callGraph.rootExternalFunctions.forEach {
-                if (!it.isTopLevelFieldInitializer)
+                if (!it.isStaticFieldInitializer)
                     referencedFunctions.add(it.irFunction ?: error("No IR for: $it"))
             }
             for (node in callGraph.directEdges.values) {
-                if (!node.symbol.isTopLevelFieldInitializer)
+                if (!node.symbol.isStaticFieldInitializer)
                     referencedFunctions.add(node.symbol.irFunction ?: error("No IR for: ${node.symbol}"))
                 node.callSites.forEach {
                     assert (!it.isVirtual) { "There should be no virtual calls in the call graph, but was: ${it.actualCallee}" }
@@ -170,9 +170,9 @@ internal val dcePhase = makeKonanModuleOpPhase(
         }
 )
 
-internal val removeRedundantCallsToFileInitializersPhase = makeKonanModuleOpPhase(
-        name = "RemoveRedundantCallsToFileInitializersPhase",
-        description = "Redundant file initializers calls removal",
+internal val removeRedundantCallsToStaticInitializersPhase = makeKonanModuleOpPhase(
+        name = "RemoveRedundantCallsToStaticInitializersPhase",
+        description = "Redundant static initializers calls removal",
         prerequisite = setOf(devirtualizationAnalysisPhase),
         op = { context, _ ->
             val moduleDFG = context.moduleDFG!!
@@ -189,7 +189,7 @@ internal val removeRedundantCallsToFileInitializersPhase = makeKonanModuleOpPhas
                     .mapNotNull { it.irFunction }
                     .toSet()
 
-            FileInitializersOptimization.removeRedundantCalls(context, callGraph, rootSet)
+            StaticInitializersOptimization.removeRedundantCalls(context, callGraph, rootSet)
         }
 )
 
