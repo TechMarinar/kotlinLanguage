@@ -30,7 +30,9 @@ import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.metadata.deserialization.*
 import org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf
 import org.jetbrains.kotlin.name.*
+import org.jetbrains.kotlin.serialization.SerializerExtensionProtocol
 import org.jetbrains.kotlin.serialization.deserialization.ProtoEnumFlags
+import org.jetbrains.kotlin.serialization.deserialization.builtins.BuiltInSerializerProtocol
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 import org.jetbrains.kotlin.serialization.deserialization.getName
 
@@ -43,6 +45,7 @@ fun deserializeClassToSymbol(
     moduleData: FirModuleData,
     defaultAnnotationDeserializer: AbstractAnnotationDeserializer?,
     scopeProvider: FirScopeProvider,
+    serializerExtensionProtocol: SerializerExtensionProtocol,
     parentContext: FirDeserializationContext? = null,
     containerSource: DeserializedContainerSource? = null,
     origin: FirDeclarationOrigin = FirDeclarationOrigin.Library,
@@ -70,9 +73,9 @@ fun deserializeClassToSymbol(
     val annotationDeserializer = defaultAnnotationDeserializer ?: FirBuiltinAnnotationDeserializer(session)
     val jvmBinaryClass = (containerSource as? KotlinJvmBinarySourceElement)?.binaryClass
     val constDeserializer = if (jvmBinaryClass != null) {
-        FirJvmConstDeserializer(session, jvmBinaryClass)
+        FirJvmConstDeserializer(session, jvmBinaryClass, serializerExtensionProtocol)
     } else {
-        FirConstDeserializer(session)
+        FirConstDeserializer(session, serializerExtensionProtocol)
     }
     val context =
         parentContext?.childContext(
@@ -86,8 +89,9 @@ fun deserializeClassToSymbol(
             if (status.isCompanion) {
                 parentContext.constDeserializer
             } else {
-                ((containerSource as? KotlinJvmBinarySourceElement)?.binaryClass)?.let { FirJvmConstDeserializer(session, it) }
-                    ?: parentContext.constDeserializer
+                ((containerSource as? KotlinJvmBinarySourceElement)?.binaryClass)?.let {
+                    FirJvmConstDeserializer(session, it, serializerExtensionProtocol)
+                } ?: parentContext.constDeserializer
             },
             status.isInner
         ) ?: FirDeserializationContext.createForClass(
