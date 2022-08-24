@@ -608,7 +608,7 @@ class DeclarationsConverter(
                             modifiers.hasExpect()
                         )
 
-                        if (!modifiers.hasExternal()) {
+                        if (superTypeRefs.any { it.isEnum }) {
                             generateEntriesGetter(
                                 baseModuleData,
                                 context.packageFqName,
