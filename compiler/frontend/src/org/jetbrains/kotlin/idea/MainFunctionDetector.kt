@@ -96,7 +96,7 @@ class MainFunctionDetector {
     ): Boolean {
         if (descriptor !is FunctionDescriptor) return false
 
-        if (getJVMFunctionName(descriptor) != "main") {
+        if (getJvmFunctionName(descriptor) != "main") {
             return false
         }
 
@@ -190,7 +190,7 @@ class MainFunctionDetector {
             return returnType != null && KotlinBuiltIns.isUnit(returnType)
         }
 
-        private fun getJVMFunctionName(functionDescriptor: FunctionDescriptor): String {
+        private fun getJvmFunctionName(functionDescriptor: FunctionDescriptor): String {
             return DescriptorUtils.getJvmName(functionDescriptor) ?: functionDescriptor.name.asString()
         }
 

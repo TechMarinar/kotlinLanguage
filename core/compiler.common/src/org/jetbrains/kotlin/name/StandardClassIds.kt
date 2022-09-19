@@ -157,6 +157,8 @@ object StandardClassIds {
         val JvmField = "JvmField".jvmId()
         val JvmDefault = "JvmDefault".jvmId()
         val JvmRepeatable = "JvmRepeatable".jvmId()
+        val JvmSynthetic = "JvmSynthetic".jvmId()
+        val JvmExpose = "JvmExpose".jvmId()
         val JvmRecord = "JvmRecord".jvmId()
 
         val RawTypeAnnotation = "RawType".internalIrId()
@@ -181,6 +183,7 @@ object StandardClassIds {
             val retentionValue = value
             val targetAllowedTargets = Name.identifier("allowedTargets")
             val jvmNameName = Name.identifier("name")
+            val jvmExposeName = jvmNameName
 
             val sinceKotlinVersion = Name.identifier("version")
 

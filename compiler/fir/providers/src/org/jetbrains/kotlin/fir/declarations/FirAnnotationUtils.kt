@@ -210,6 +210,14 @@ fun FirAnnotationContainer.getJvmNameFromAnnotation(target: AnnotationUseSiteTar
     }
 }
 
+fun FirAnnotationContainer.getJvmExposeFromAnnotation(target: AnnotationUseSiteTarget? = null): String? {
+    val annotationCalls = getAnnotationsByClassId(StandardClassIds.Annotations.JvmExpose)
+    return annotationCalls.firstNotNullOfOrNull { call ->
+        call.getStringArgument(StandardClassIds.Annotations.ParameterNames.jvmExposeName)
+            ?.takeIf { target == null || call.useSiteTarget == target }
+    }
+}
+
 val FirAnnotation.resolved: Boolean
     get() {
         if (annotationTypeRef !is FirResolvedTypeRef) return false

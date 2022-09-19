@@ -74,7 +74,7 @@ public class KtVariableLikeSignature<out S : KtVariableLikeSymbol>(
     private fun getValueFromParameterNameAnnotation(): Name? {
         val resultingAnnotation = findParameterNameAnnotation() ?: return null
         val parameterNameArgument = resultingAnnotation.arguments
-            .singleOrNull { it.name == StandardClassIds.Annotations.ParameterNames.parameterNameName }
+            .singleOrNull { it.name == StandardClassIds.Annotations.ParameterNames. parameterNameName }
 
         val constantArgumentValue = parameterNameArgument?.expression as? KtConstantAnnotationValue ?: return null
 

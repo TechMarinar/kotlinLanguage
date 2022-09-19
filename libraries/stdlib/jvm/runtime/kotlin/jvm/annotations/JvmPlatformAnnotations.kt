@@ -154,3 +154,18 @@ public actual annotation class JvmInline
 @MustBeDocumented
 @SinceKotlin("1.5")
 public actual annotation class JvmRecord
+
+/**
+ * Ensures that the annotated element can be successfully called from Java.
+ *
+ * @property name the optional name of the element.
+ */
+@Target(
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.PROPERTY_GETTER,
+    AnnotationTarget.PROPERTY_SETTER,
+    AnnotationTarget.CONSTRUCTOR,
+)
+@Retention(AnnotationRetention.BINARY)
+@MustBeDocumented
+public actual annotation class JvmExpose(actual val name: String = "")

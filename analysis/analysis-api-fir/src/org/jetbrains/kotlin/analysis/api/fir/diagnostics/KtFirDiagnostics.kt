@@ -2822,6 +2822,14 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = JvmInlineWithoutValueClass::class
     }
 
+    abstract class InapplicableJvmExpose : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = InapplicableJvmExpose::class
+    }
+
+    abstract class ConflictingJvmNameAndExpose : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = ConflictingJvmNameAndExpose::class
+    }
+
     abstract class JavaTypeMismatch : KtFirDiagnostic<KtExpression>() {
         override val diagnosticClass get() = JavaTypeMismatch::class
         abstract val expectedType: KtType

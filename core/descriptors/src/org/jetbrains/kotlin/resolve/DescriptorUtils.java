@@ -34,7 +34,11 @@ import static org.jetbrains.kotlin.resolve.descriptorUtil.DescriptorUtilsKt.getB
 
 public class DescriptorUtils {
     // This JVM-specific class FQ name is declared here only because it's used in MainFunctionDetector which is in frontend
+    @NotNull
     public static final FqName JVM_NAME = new FqName("kotlin.jvm.JvmName");
+    // JvmExpose is used in MainFunctionDetector as well as JvmName
+    @NotNull
+    public static final FqName JVM_EXPOSE = new FqName("kotlin.jvm.JvmExpose");
 
     private DescriptorUtils() {
     }
@@ -283,7 +287,8 @@ public class DescriptorUtils {
     }
 
     public static boolean isSealedClass(@Nullable DeclarationDescriptor descriptor) {
-        return (isKindOf(descriptor, ClassKind.CLASS) || isKindOf(descriptor, ClassKind.INTERFACE)) && ((ClassDescriptor) descriptor).getModality() == Modality.SEALED;
+        return (isKindOf(descriptor, ClassKind.CLASS) || isKindOf(descriptor, ClassKind.INTERFACE)) &&
+               ((ClassDescriptor) descriptor).getModality() == Modality.SEALED;
     }
 
     public static boolean isAnonymousObject(@NotNull DeclarationDescriptor descriptor) {
@@ -388,7 +393,7 @@ public class DescriptorUtils {
     public static ClassDescriptor getClassDescriptorForTypeConstructor(@NotNull TypeConstructor typeConstructor) {
         ClassifierDescriptor descriptor = typeConstructor.getDeclarationDescriptor();
         assert descriptor instanceof ClassDescriptor
-            : "Classifier descriptor of a type should be of type ClassDescriptor: " + typeConstructor;
+                : "Classifier descriptor of a type should be of type ClassDescriptor: " + typeConstructor;
         return (ClassDescriptor) descriptor;
     }
 
@@ -404,7 +409,8 @@ public class DescriptorUtils {
         if (isSealedClass(classDescriptor)) {
             if (freedomForSealedInterfacesSupported) {
                 return DescriptorVisibilities.PROTECTED;
-            } else {
+            }
+            else {
                 return DescriptorVisibilities.PRIVATE;
             }
         }
@@ -417,7 +423,11 @@ public class DescriptorUtils {
 
     // TODO: should be internal
     @Nullable
-    public static ClassDescriptor getInnerClassByName(@NotNull ClassDescriptor classDescriptor, @NotNull String innerClassName, @NotNull LookupLocation location) {
+    public static ClassDescriptor getInnerClassByName(
+            @NotNull ClassDescriptor classDescriptor,
+            @NotNull String innerClassName,
+            @NotNull LookupLocation location
+    ) {
         ClassifierDescriptor classifier =
                 classDescriptor.getDefaultType().getMemberScope().getContributedClassifier(Name.identifier(innerClassName), location);
         assert classifier instanceof ClassDescriptor :
@@ -529,7 +539,7 @@ public class DescriptorUtils {
     @NotNull
     @SuppressWarnings("unchecked")
     public static <D extends CallableMemberDescriptor> Set<D> getAllOverriddenDeclarations(@NotNull D memberDescriptor) {
-        Set<D> result = new HashSet<D>();
+        Set<D> result = new HashSet<>();
         for (CallableMemberDescriptor overriddenDeclaration : memberDescriptor.getOverriddenDescriptors()) {
             CallableMemberDescriptor.Kind kind = overriddenDeclaration.getKind();
             if (kind == DECLARATION) {
@@ -556,11 +566,14 @@ public class DescriptorUtils {
 
     @Nullable
     public static String getJvmName(@NotNull Annotated annotated) {
-        return getJvmName(findJvmNameAnnotation(annotated));
+        String name = getJvmNameName(annotated);
+        if (name == null) name = getJvmExposeName(annotated);
+        return name;
     }
 
     @Nullable
-    private static String getJvmName(@Nullable AnnotationDescriptor jvmNameAnnotation) {
+    private static String getJvmNameName(@NotNull Annotated annotated) {
+        AnnotationDescriptor jvmNameAnnotation = findJvmNameAnnotation(annotated);
         if (jvmNameAnnotation == null) return null;
 
         Map<Name, ConstantValue<?>> arguments = jvmNameAnnotation.getAllValueArguments();
@@ -573,11 +586,52 @@ public class DescriptorUtils {
     }
 
     @Nullable
+    private static String getJvmExposeName(@NotNull Annotated annotated) {
+        AnnotationDescriptor jvmExposeAnnotation = findJvmExposeAnnotation(annotated);
+        if (jvmExposeAnnotation == null) return null;
+
+        Map<Name, ConstantValue<?>> arguments = jvmExposeAnnotation.getAllValueArguments();
+
+        String stringName;
+        if (arguments.isEmpty()) {
+            return null;
+        }
+        else if (annotated instanceof Named) {
+            stringName = ((Named) annotated).getName().asString();
+        }
+        else {
+            return null;
+        }
+
+        ConstantValue<?> name = arguments.values().iterator().next();
+        if (!(name instanceof StringValue)) return null;
+        stringName = ((StringValue) name).getValue();
+        if (stringName.isEmpty()) {
+            if (annotated instanceof Named) {
+                stringName = ((Named) annotated).getName().asString();
+            }
+            else {
+                return null;
+            }
+        }
+        return stringName;
+    }
+
+    @Nullable
     public static AnnotationDescriptor findJvmNameAnnotation(@NotNull Annotated annotated) {
         return annotated.getAnnotations().findAnnotation(JVM_NAME);
     }
 
+    @Nullable
+    public static AnnotationDescriptor findJvmExposeAnnotation(@NotNull Annotated annotated) {
+        return annotated.getAnnotations().findAnnotation(JVM_EXPOSE);
+    }
+
     public static boolean hasJvmNameAnnotation(@NotNull Annotated annotated) {
+        return findJvmNameAnnotation(annotated) != null;
+    }
+
+    public static boolean hasJvmExposeAnnotation(@NotNull Annotated annotated) {
         return findJvmNameAnnotation(annotated) != null;
     }
 

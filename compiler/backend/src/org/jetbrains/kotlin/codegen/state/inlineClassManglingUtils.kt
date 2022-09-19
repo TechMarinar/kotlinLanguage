@@ -88,9 +88,9 @@ fun getManglingSuffixBasedOnKotlinSignature(
     if (descriptor is JavaMethodDescriptor) return null
     if (InlineClassDescriptorResolver.isSynthesizedBoxOrUnboxMethod(descriptor)) return null
 
-    // Don't mangle functions with '@JvmName' annotation.
+    // Don't mangle functions with '@JvmName' or '@JvmExpose' annotation.
     // Some stdlib functions ('Result.success', 'Result.failure') are annotated with '@JvmName' as a workaround for forward compatibility.
-    if (DescriptorUtils.hasJvmNameAnnotation(descriptor)) return null
+    if (DescriptorUtils.hasJvmNameAnnotation(descriptor) || DescriptorUtils.hasJvmExposeAnnotation(descriptor)) return null
 
     val unwrappedDescriptor = descriptor.unwrapInitialDescriptorForSuspendFunction()
 
