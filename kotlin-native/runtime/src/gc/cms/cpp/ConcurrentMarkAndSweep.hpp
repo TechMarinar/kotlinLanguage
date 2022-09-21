@@ -14,6 +14,7 @@
 #include "MarkAndSweepUtils.hpp"
 #include "ObjectFactory.hpp"
 #include "ScopedThread.hpp"
+#include "ThreadData.hpp"
 #include "Types.h"
 #include "Utils.hpp"
 #include "GCState.hpp"
@@ -21,11 +22,6 @@
 #include "GCStatistics.hpp"
 
 namespace kotlin {
-
-namespace mm {
-class ThreadData;
-}
-
 namespace gc {
 
 class FinalizerProcessor;

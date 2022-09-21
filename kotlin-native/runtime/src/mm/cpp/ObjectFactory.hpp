@@ -19,6 +19,9 @@
 #include "Porting.h"
 #include "Types.h"
 #include "Utils.hpp"
+#ifdef CUSTOM_ALLOCATOR
+#include "ObjectAlloc.hpp"
+#endif
 
 namespace kotlin {
 namespace mm {
@@ -514,7 +517,11 @@ public:
             typename Storage::Producer::Iterator iterator_;
         };
 
+#ifndef CUSTOM_ALLOCATOR
         ThreadQueue(ObjectFactory& owner, Allocator allocator) noexcept : producer_(owner.storage_, std::move(allocator)) {}
+#else
+        ThreadQueue(ObjectFactory& owner, Allocator allocator) noexcept : allocator_(std::move(allocator)) {}
+#endif
 
         static size_t ObjectAllocatedSize(const TypeInfo* typeInfo) noexcept {
             RuntimeAssert(!typeInfo->IsArray(), "Must not be an array");
@@ -526,8 +533,12 @@ public:
         ObjHeader* CreateObject(const TypeInfo* typeInfo) noexcept {
             RuntimeAssert(!typeInfo->IsArray(), "Must not be an array");
             size_t allocSize = ObjectAllocatedDataSize(typeInfo);
+#ifndef CUSTOM_ALLOCATOR
             auto& node = producer_.Insert(allocSize);
             auto* heapObject = new (node.Data()) HeapObjHeader();
+#else
+            auto* heapObject = new (allocator_.Alloc(allocSize)) HeapObjHeader();
+#endif
             auto* object = &heapObject->object;
             object->typeInfoOrMeta_ = const_cast<TypeInfo*>(typeInfo);
             // TODO: Consider supporting TF_IMMUTABLE: mark instance as frozen upon creation.
@@ -544,8 +555,12 @@ public:
         ArrayHeader* CreateArray(const TypeInfo* typeInfo, uint32_t count) noexcept {
             RuntimeAssert(typeInfo->IsArray(), "Must be an array");
             auto allocSize = ArrayAllocatedDataSize(typeInfo, count);
+#ifndef CUSTOM_ALLOCATOR
             auto& node = producer_.Insert(allocSize);
             auto* heapArray = new (node.Data()) HeapArrayHeader();
+#else
+            auto* heapArray = new (allocator_.Alloc(allocSize)) HeapArrayHeader();
+#endif
             auto* array = &heapArray->array;
             array->typeInfoOrMeta_ = const_cast<TypeInfo*>(typeInfo);
             array->count_ = count;
@@ -553,12 +568,18 @@ public:
             return array;
         }
 
+#ifndef CUSTOM_ALLOCATOR
         void Publish() noexcept { producer_.Publish(); }
 
         Iterator begin() noexcept { return Iterator(producer_.begin()); }
         Iterator end() noexcept { return Iterator(producer_.end()); }
 
         void ClearForTests() noexcept { producer_.ClearForTests(); }
+#else
+        void Publish() noexcept { }
+
+        void ClearForTests() noexcept { }
+#endif
 
     private:
         static size_t ObjectAllocatedDataSize(const TypeInfo* typeInfo) noexcept {
@@ -574,7 +595,11 @@ public:
             return AlignUp<uint64_t>(sizeof(HeapArrayHeader) + membersSize, kObjectAlignment);
         }
 
+#ifndef CUSTOM_ALLOCATOR
         typename Storage::Producer producer_;
+#else
+        Allocator allocator_;
+#endif
     };
 
     class Iterator {

@@ -12,7 +12,6 @@
 #include "GlobalsRegistry.hpp"
 #include "GC.hpp"
 #include "GCScheduler.hpp"
-#include "ObjectFactory.hpp"
 #include "ExtraObjectDataFactory.hpp"
 #include "ShadowStack.hpp"
 #include "StableRefRegistry.hpp"
@@ -24,6 +23,14 @@
 struct ObjHeader;
 
 namespace kotlin {
+
+#ifdef CUSTOM_ALLOCATOR
+namespace alloc {
+struct ThreadData;
+ThreadData& GetThreadData() noexcept;
+} // namespace alloc
+#endif
+
 namespace mm {
 
 // `ThreadData` is supposed to be thread local singleton.
@@ -36,6 +43,9 @@ public:
         stableRefThreadQueue_(StableRefRegistry::Instance()),
         extraObjectDataThreadQueue_(ExtraObjectDataFactory::Instance()),
         gc_(GlobalData::Instance().gc(), *this),
+#ifdef CUSTOM_ALLOCATOR
+        alloc_(alloc::GetThreadData()),
+#endif
         suspensionData_(ThreadState::kNative, *this) {}
 
     ~ThreadData() = default;
@@ -57,6 +67,10 @@ public:
     ShadowStack& shadowStack() noexcept { return shadowStack_; }
 
     std_support::vector<std::pair<ObjHeader**, ObjHeader*>>& initializingSingletons() noexcept { return initializingSingletons_; }
+
+#ifdef CUSTOM_ALLOCATOR
+    alloc::ThreadData& alloc() noexcept { return alloc_; }
+#endif
 
     gc::GC::ThreadData& gc() noexcept { return gc_; }
 
@@ -86,6 +100,9 @@ private:
     ShadowStack shadowStack_;
     gc::GC::ThreadData gc_;
     std_support::vector<std::pair<ObjHeader**, ObjHeader*>> initializingSingletons_;
+#ifdef CUSTOM_ALLOCATOR
+    alloc::ThreadData& alloc_;
+#endif
     ThreadSuspensionData suspensionData_;
 };
 

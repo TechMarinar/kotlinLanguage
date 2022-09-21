@@ -129,6 +129,11 @@ bitcode {
             headersDirs.from(files("src/main/cpp"))
         }
 
+        module("custom_alloc") {
+            headersDirs.from(files("src/main/cpp", "src/mm/cpp", "src/gc/common/cpp", "src/gc/cms/cpp"))
+            compilerArgs.add("-DCUSTOM_ALLOCATOR")
+        }
+
         module("opt_alloc") {
             headersDirs.from(files("src/main/cpp"))
         }
@@ -173,6 +178,11 @@ bitcode {
             headersDirs.from(files("src/gc/common/cpp", "src/main/cpp"))
         }
 
+        module("experimental_memory_manager_custom", file("src/mm")) {
+            headersDirs.from(files("src/gc/common/cpp", "src/main/cpp"))
+            compilerArgs.add("-DCUSTOM_ALLOCATOR")
+        }
+
         module("common_gc", file("src/gc/common")) {
             headersDirs.from(files("src/mm/cpp", "src/main/cpp"))
         }
@@ -191,8 +201,19 @@ bitcode {
             onlyIf { targetSupportsThreads(target.name) }
         }
 
+        module("concurrent_ms_gc_custom", file("src/gc/cms")) {
+            headersDirs.from(files("src/gc/cms/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp", "src/custom_alloc/cpp"))
+            compilerArgs.add("-DCUSTOM_ALLOCATOR")
+
+            onlyIf { targetSupportsThreads(target.name) }
+        }
+
         testsGroup("std_alloc_runtime_tests") {
             testedModules.addAll("main", "legacy_memory_manager", "strict", "std_alloc", "objc")
+        }
+
+        testsGroup("custom_alloc_runtime_tests") {
+            testedModules.addAll("main", "custom_alloc", "experimental_memory_manager", "common_gc", "concurrent_ms_gc", "objc")
         }
 
         testsGroup("mimalloc_runtime_tests") {

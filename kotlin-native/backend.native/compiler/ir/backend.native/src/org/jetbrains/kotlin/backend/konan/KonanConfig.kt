@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.library.resolver.TopologicalLibraryOrder
 import org.jetbrains.kotlin.util.removeSuffixIfPresent
 
 class KonanConfig(val project: Project, val configuration: CompilerConfiguration) {
-
     internal val distribution = run {
         val overridenProperties = mutableMapOf<String, String>().apply {
             configuration.get(KonanConfigKeys.OVERRIDE_KONAN_PROPERTIES)?.let(this::putAll)
@@ -239,6 +238,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         get() = configuration.get(KonanConfigKeys.SHORT_MODULE_NAME)
 
     fun librariesWithDependencies(moduleDescriptor: ModuleDescriptor?): List<KonanLibrary> {
+
         if (moduleDescriptor == null) error("purgeUnneeded() only works correctly after resolve is over, and we have successfully marked package files as needed or not needed.")
         return resolvedLibraries.filterRoots { (!it.isDefault && !this.purgeUserLibs) || it.isNeededForLink }.getFullList(TopologicalLibraryOrder).map { it as KonanLibrary }
     }
@@ -266,6 +266,13 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
                     AllocationMode.STD
                 }
             }
+            AllocationMode.CUSTOM -> {
+                if (gc != GC.CONCURRENT_MARK_AND_SWEEP) {
+                    configuration.report(CompilerMessageSeverity.STRONG_WARNING,
+                            "Custom allocator is currently only integrated with concurrent mark and sweep gc. Performance will not be ideal with selected gc.")
+                }
+                AllocationMode.CUSTOM
+            }
         }
     }
 
@@ -282,16 +289,23 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
             }
             MemoryModel.EXPERIMENTAL -> {
                 add("common_gc.bc")
-                add("experimental_memory_manager.bc")
                 when (gc) {
                     GC.SAME_THREAD_MARK_AND_SWEEP -> {
+                        add("experimental_memory_manager.bc")
                         add("same_thread_ms_gc.bc")
                     }
                     GC.NOOP -> {
+                        add("experimental_memory_manager.bc")
                         add("noop_gc.bc")
                     }
                     GC.CONCURRENT_MARK_AND_SWEEP -> {
-                        add("concurrent_ms_gc.bc")
+                        if (allocationMode == AllocationMode.CUSTOM) {
+                            add("experimental_memory_manager_custom.bc")
+                            add("concurrent_ms_gc_custom.bc")
+                        } else {
+                            add("experimental_memory_manager.bc")
+                            add("concurrent_ms_gc.bc")
+                        }
                     }
                 }
             }
@@ -311,6 +325,9 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
             }
             AllocationMode.STD -> {
                 add("std_alloc.bc")
+            }
+            AllocationMode.CUSTOM -> {
+                add("custom_alloc.bc")
             }
         }
     }.map {
