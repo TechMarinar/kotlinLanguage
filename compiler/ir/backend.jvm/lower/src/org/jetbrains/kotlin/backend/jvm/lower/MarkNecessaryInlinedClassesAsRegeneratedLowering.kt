@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.types.typeOrNull
-import org.jetbrains.kotlin.ir.util.getArgumentsWithIr
+import org.jetbrains.kotlin.ir.util.getAllArgumentsWithIr
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
@@ -66,17 +66,10 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             private val reifiedArguments = mutableListOf<IrType>()
 
             fun IrContainerExpression.getInlinableParameters(): List<IrValueParameter> {
-                // TODO fix this mess
                 val call = (this.statements.first() as IrInlineMarker).inlineCall
-                return call.getArgumentsWithIr()
-                    .filter { (param, arg) ->
-                        param.isInlineParameter() && arg is IrFunctionExpression ||
-                                arg is IrGetValue && arg.symbol.owner in inlinableParameters
-                    }
-                    .map { it.first } +
-                        call.symbol.owner.valueParameters.filterIndexed { index, param ->
-                            call.getValueArgument(index) == null && param.isInlineParameter()
-                        }
+                return call.getAllArgumentsWithIr()
+                    .filter { (param, arg) -> param.isInlineParameter() || arg is IrGetValue && arg.symbol.owner in inlinableParameters }
+                    .map { it.first }
             }
 
             fun IrContainerExpression.getReifiedArguments(): List<IrType> {
