@@ -116,20 +116,6 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
                 visitAnonymousDeclaration(expression)
             }
 
-            override fun visitTypeOperator(expression: IrTypeOperatorCall) {
-                if (expression.hasReifiedTypeArguments(reifiedArguments)) {
-                    saveDeclarationsFromStackIntoRegenerationPool()
-                }
-                super.visitTypeOperator(expression)
-            }
-
-            override fun visitClassReference(expression: IrClassReference) {
-                if (expression.hasReifiedTypeArguments(reifiedArguments)) {
-                    saveDeclarationsFromStackIntoRegenerationPool()
-                }
-                super.visitClassReference(expression)
-            }
-
             override fun visitGetValue(expression: IrGetValue) {
                 super.visitGetValue(expression)
                 if (
@@ -146,7 +132,7 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
                     return
                 }
 
-                if (expression.hasReifiedTypeArguments(reifiedArguments) || expression.origin is InlinedFunctionReference) {
+                if (expression.origin is InlinedFunctionReference) {
                     saveDeclarationsFromStackIntoRegenerationPool()
                 }
                 super.visitCall(expression)
@@ -244,7 +230,7 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         acceptVoid(object : IrElementVisitorVoid {
             override fun visitElement(element: IrElement) {
                 if (element is IrAttributeContainer && element.attributeOwnerIdBeforeInline != null) {
-                    // Technically we need to generate SEQUENCE of `element.attributeOwnerIdBeforeInline` and find the original one.
+                    // Basically we need to generate SEQUENCE of `element.attributeOwnerIdBeforeInline` and find the original one.
                     //  But this is not needed because we process all functions in the same order as they were processed by FunctionInlining.
                     //  This mean that when we start to precess current container, all inner ones in SEQUENCE will already be processed.
                     element.attributeOwnerId = element.attributeOwnerIdBeforeInline!!.attributeOwnerId
