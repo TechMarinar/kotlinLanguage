@@ -14,7 +14,10 @@ import org.jetbrains.kotlin.backend.jvm.ir.isInlineParameter
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.getClass
+import org.jetbrains.kotlin.ir.types.typeOrNull
 import org.jetbrains.kotlin.ir.util.getArgumentsWithIr
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
@@ -60,10 +63,11 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         this.acceptVoid(object : IrElementVisitorVoid {
             private val containersStack = mutableListOf<IrAttributeContainer>()
             private val inlinableParameters = mutableListOf<IrValueParameter>()
+            private val reifiedArguments = mutableListOf<IrType>()
 
             fun IrContainerExpression.getInlinableParameters(): List<IrValueParameter> {
-                val inlineMarker = this.statements.first() as IrInlineMarker
-                val call = inlineMarker.inlineCall
+                // TODO fix this mess
+                val call = (this.statements.first() as IrInlineMarker).inlineCall
                 return call.getArgumentsWithIr()
                     .filter { (param, arg) ->
                         param.isInlineParameter() && arg is IrFunctionExpression ||
@@ -75,6 +79,13 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
                         }
             }
 
+            fun IrContainerExpression.getReifiedArguments(): List<IrType> {
+                val call = (this.statements.first() as IrInlineMarker).inlineCall
+                return call.symbol.owner.typeParameters.mapIndexedNotNull { index, param ->
+                    call.getTypeArgument(index)?.takeIf { param.isReified }
+                }
+            }
+
             private fun saveDeclarationsFromStackIntoRegenerationPool() {
                 containersStack.forEach {
                     classesToRegenerate += it
@@ -83,44 +94,48 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
 
             override fun visitElement(element: IrElement) = element.acceptChildrenVoid(this)
 
-            override fun visitClassReference(expression: IrClassReference) {
-                if (expression.hasReifiedTypeParameters()) saveDeclarationsFromStackIntoRegenerationPool()
-                super.visitClassReference(expression)
-            }
-
-            override fun visitClass(declaration: IrClass) {
+            private fun visitAnonymousDeclaration(declaration: IrAttributeContainer) {
                 containersStack += declaration
-                if (declaration.hasReifiedTypeParameters()) saveDeclarationsFromStackIntoRegenerationPool()
+                if (declaration.hasReifiedTypeArguments(reifiedArguments)) {
+                    saveDeclarationsFromStackIntoRegenerationPool()
+                }
                 declaration.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this) // check if we need to save THIS declaration
                 declaration.acceptChildrenVoid(this) // check if we need to save INNER declarations
                 containersStack.removeLast()
             }
 
+            override fun visitClass(declaration: IrClass) {
+                visitAnonymousDeclaration(declaration)
+            }
+
             override fun visitFunctionExpression(expression: IrFunctionExpression) {
-                containersStack += expression
-                expression.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this)
-                expression.acceptChildrenVoid(this)
-                containersStack.removeLast()
+                visitAnonymousDeclaration(expression)
             }
 
             override fun visitFunctionReference(expression: IrFunctionReference) {
-                containersStack += expression
-                expression.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this)
-                expression.acceptChildrenVoid(this)
-                containersStack.removeLast()
+                visitAnonymousDeclaration(expression)
             }
 
             override fun visitTypeOperator(expression: IrTypeOperatorCall) {
-                if (expression.hasReifiedTypeParameters()) saveDeclarationsFromStackIntoRegenerationPool()
+                if (expression.hasReifiedTypeArguments(reifiedArguments)) {
+                    saveDeclarationsFromStackIntoRegenerationPool()
+                }
                 super.visitTypeOperator(expression)
+            }
+
+            override fun visitClassReference(expression: IrClassReference) {
+                if (expression.hasReifiedTypeArguments(reifiedArguments)) {
+                    saveDeclarationsFromStackIntoRegenerationPool()
+                }
+                super.visitClassReference(expression)
             }
 
             override fun visitGetValue(expression: IrGetValue) {
                 super.visitGetValue(expression)
-                if (expression.symbol.owner in inlinableParameters) {
-                    saveDeclarationsFromStackIntoRegenerationPool()
-                }
-                if (expression.type.getClass()?.let { classesToRegenerate.contains(it) } == true) {
+                if (
+                    expression.symbol.owner in inlinableParameters ||
+                    expression.type.getClass()?.let { classesToRegenerate.contains(it) } == true
+                ) {
                     saveDeclarationsFromStackIntoRegenerationPool()
                 }
             }
@@ -131,7 +146,7 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
                     return
                 }
 
-                if (expression.hasReifiedTypeParameters() || expression.origin is InlinedFunctionReference) {
+                if (expression.hasReifiedTypeArguments(reifiedArguments) || expression.origin is InlinedFunctionReference) {
                     saveDeclarationsFromStackIntoRegenerationPool()
                 }
                 super.visitCall(expression)
@@ -140,9 +155,13 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             override fun visitContainerExpression(expression: IrContainerExpression) {
                 if (expression.wasExplicitlyInlined()) {
                     val additionalInlinableParameters = expression.getInlinableParameters()
+                    val additionalTypeArguments = expression.getReifiedArguments()
+
                     inlinableParameters.addAll(additionalInlinableParameters)
+                    reifiedArguments.addAll(additionalTypeArguments)
                     super.visitContainerExpression(expression)
                     inlinableParameters.dropLast(additionalInlinableParameters.size)
+                    reifiedArguments.dropLast(additionalTypeArguments.size)
                     return
                 }
 
@@ -152,25 +171,20 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         return classesToRegenerate
     }
 
-    private fun IrAttributeContainer.hasReifiedTypeParameters(): Boolean {
+    private fun IrAttributeContainer.hasReifiedTypeArguments(reifiedArguments: List<IrType>): Boolean {
         var hasReified = false
 
         fun IrType.recursiveWalkDown(visitor: IrElementVisitorVoid) {
-            this@recursiveWalkDown.classifierOrNull?.owner?.acceptVoid(visitor)
+            hasReified = hasReified || this@recursiveWalkDown in reifiedArguments
             (this@recursiveWalkDown as? IrSimpleType)?.arguments?.forEach { it.typeOrNull?.recursiveWalkDown(visitor) }
         }
 
-        this.attributeOwnerIdBeforeInline?.acceptVoid(object : IrElementVisitorVoid {
+        this.acceptVoid(object : IrElementVisitorVoid {
             private val visitedClasses = mutableSetOf<IrClass>()
 
             override fun visitElement(element: IrElement) {
                 if (hasReified) return
                 element.acceptChildrenVoid(this)
-            }
-
-            override fun visitTypeParameter(declaration: IrTypeParameter) {
-                hasReified = hasReified || declaration.isReified
-                super.visitTypeParameter(declaration)
             }
 
             override fun visitClass(declaration: IrClass) {
