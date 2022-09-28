@@ -6,15 +6,17 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
-import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.lower.inline.InlinedFunctionReference
 import org.jetbrains.kotlin.backend.common.phaser.makeIrModulePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.functionInliningPhase
+import org.jetbrains.kotlin.backend.jvm.ir.isInlineParameter
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.util.getArgumentsWithIr
+import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
@@ -26,20 +28,19 @@ internal val markNecessaryInlinedClassesAsRegenerated = makeIrModulePhase(
     prerequisite = setOf(functionInliningPhase, createSeparateCallForInlinedLambdas)
 )
 
-class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendContext) : IrElementTransformerVoidWithContext(), FileLoweringPass {
+class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendContext) : IrElementTransformerVoid(), FileLoweringPass {
     override fun lower(irFile: IrFile) {
         irFile.transformChildrenVoid()
     }
 
     override fun visitBlock(expression: IrBlock): IrExpression {
-        val newBlock = super.visitBlock(expression)
-
-        if (newBlock.wasExplicitlyInlined()) {
-            val mustBeRegenerated = newBlock.collectIrClassesThatMustBeRegenerated()
-            mustBeRegenerated.forEach { it.setUpCorrectAttributeOwnerForInlinedElements() }
+        if (expression.wasExplicitlyInlined()) {
+            val mustBeRegenerated = (expression as IrReturnableBlock).collectDeclarationsThatMustBeRegenerated()
+            expression.setUpCorrectAttributesForAllInnerElements(mustBeRegenerated)
+            return expression
         }
 
-        return newBlock
+        return super.visitBlock(expression)
     }
 
     private fun IrExpression.wasExplicitlyInlined(): Boolean {
@@ -54,18 +55,29 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         return super.visitCall(expression)
     }
 
-    private fun IrElement.collectIrClassesThatMustBeRegenerated(): Set<IrAttributeContainer> {
+    private fun IrReturnableBlock.collectDeclarationsThatMustBeRegenerated(): Set<IrAttributeContainer> {
         val classesToRegenerate = mutableSetOf<IrAttributeContainer>()
         this.acceptVoid(object : IrElementVisitorVoid {
             private val containersStack = mutableListOf<IrAttributeContainer>()
+            private val inlinableParameters = mutableListOf<IrValueParameter>()
 
-            private fun saveDeclarationsFromStackIntoRegenerationPool() {
-                containersStack.forEach { classesToRegenerate += it }
+            fun IrContainerExpression.getInlinableParameters(): List<IrValueParameter> {
+                val inlineMarker = this.statements.first() as IrInlineMarker
+                val call = inlineMarker.inlineCall
+                return call.getArgumentsWithIr()
+                    .filter { (param, arg) ->
+                        param.isInlineParameter() && arg is IrFunctionExpression ||
+                                arg is IrGetValue && arg.symbol.owner in inlinableParameters
+                    }
+                    .map { it.first } +
+                        call.symbol.owner.valueParameters.filterIndexed { index, param ->
+                            call.getValueArgument(index) == null && param.isInlineParameter()
+                        }
             }
 
-            private fun IrAttributeContainer.saveIfRegenerated() {
-                if (attributeOwnerId.attributeOwnerIdBeforeInline != null) {
-                    classesToRegenerate += this
+            private fun saveDeclarationsFromStackIntoRegenerationPool() {
+                containersStack.forEach {
+                    classesToRegenerate += it
                 }
             }
 
@@ -77,24 +89,24 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             }
 
             override fun visitClass(declaration: IrClass) {
-                declaration.saveIfRegenerated()
                 containersStack += declaration
                 if (declaration.hasReifiedTypeParameters()) saveDeclarationsFromStackIntoRegenerationPool()
-                super.visitClass(declaration)
+                declaration.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this) // check if we need to save THIS declaration
+                declaration.acceptChildrenVoid(this) // check if we need to save INNER declarations
                 containersStack.removeLast()
             }
 
             override fun visitFunctionExpression(expression: IrFunctionExpression) {
-                expression.saveIfRegenerated()
                 containersStack += expression
-                super.visitFunctionExpression(expression)
+                expression.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this)
+                expression.acceptChildrenVoid(this)
                 containersStack.removeLast()
             }
 
             override fun visitFunctionReference(expression: IrFunctionReference) {
-                expression.saveIfRegenerated()
                 containersStack += expression
-                super.visitFunctionReference(expression)
+                expression.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this)
+                expression.acceptChildrenVoid(this)
                 containersStack.removeLast()
             }
 
@@ -105,6 +117,9 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
 
             override fun visitGetValue(expression: IrGetValue) {
                 super.visitGetValue(expression)
+                if (expression.symbol.owner in inlinableParameters) {
+                    saveDeclarationsFromStackIntoRegenerationPool()
+                }
                 if (expression.type.getClass()?.let { classesToRegenerate.contains(it) } == true) {
                     saveDeclarationsFromStackIntoRegenerationPool()
                 }
@@ -123,11 +138,15 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             }
 
             override fun visitContainerExpression(expression: IrContainerExpression) {
-                super.visitContainerExpression(expression)
-                if (expression !is IrReturnableBlock || expression.inlineFunctionSymbol?.owner?.origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA) {
+                if (expression.wasExplicitlyInlined()) {
+                    val additionalInlinableParameters = expression.getInlinableParameters()
+                    inlinableParameters.addAll(additionalInlinableParameters)
+                    super.visitContainerExpression(expression)
+                    inlinableParameters.dropLast(additionalInlinableParameters.size)
                     return
                 }
-                saveDeclarationsFromStackIntoRegenerationPool()
+
+                super.visitContainerExpression(expression)
             }
         })
         return classesToRegenerate
@@ -141,7 +160,7 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             (this@recursiveWalkDown as? IrSimpleType)?.arguments?.forEach { it.typeOrNull?.recursiveWalkDown(visitor) }
         }
 
-        this.attributeOwnerId.acceptVoid(object : IrElementVisitorVoid {
+        this.attributeOwnerIdBeforeInline?.acceptVoid(object : IrElementVisitorVoid {
             private val visitedClasses = mutableSetOf<IrClass>()
 
             override fun visitElement(element: IrElement) {
@@ -180,33 +199,44 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         return hasReified
     }
 
-    private fun IrAttributeContainer.setUpCorrectAttributeOwnerForInlinedElements() {
-        fun IrAttributeContainer.setUpCorrectAttributeOwnerForSingleElement() {
-            this.attributeOwnerIdBeforeInline = this.attributeOwnerId.let { it.attributeOwnerIdBeforeInline ?: it }
-            this.attributeOwnerId = this
-        }
-
-        setUpCorrectAttributeOwnerForSingleElement()
+    private fun IrElement.setUpCorrectAttributesForAllInnerElements(mustBeRegenerated: Set<IrAttributeContainer>) {
         this.acceptChildrenVoid(object : IrElementVisitorVoid {
+            private fun checkAndSetUpCorrectAttributes(element: IrAttributeContainer) {
+                when {
+                    element in mustBeRegenerated -> element.acceptChildrenVoid(this)
+                    element.attributeOwnerIdBeforeInline != null -> element.setUpOriginalAttributes(mustBeRegenerated)
+                    else -> element.acceptChildrenVoid(this)
+                }
+            }
+
             override fun visitElement(element: IrElement) {
-                if (element is IrAttributeContainer) element.setUpCorrectAttributeOwnerForSingleElement()
                 element.acceptChildrenVoid(this)
             }
 
             override fun visitClass(declaration: IrClass) {
-                return
+                checkAndSetUpCorrectAttributes(declaration)
             }
 
             override fun visitFunctionExpression(expression: IrFunctionExpression) {
-                return
+                checkAndSetUpCorrectAttributes(expression)
             }
 
             override fun visitFunctionReference(expression: IrFunctionReference) {
-                return
+                checkAndSetUpCorrectAttributes(expression)
             }
+        })
+    }
 
-            override fun visitPropertyReference(expression: IrPropertyReference) {
-                return
+    private fun IrElement.setUpOriginalAttributes(mustBeRegenerated: Set<IrAttributeContainer>) {
+        acceptVoid(object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+                if (element is IrAttributeContainer && element.attributeOwnerIdBeforeInline != null) {
+//                    val attributeContainerSequence = generateSequence(element) { it.attributeOwnerIdBeforeInline }
+//                    element.attributeOwnerId = (attributeContainerSequence.firstOrNull { it in mustBeRegenerated } ?: attributeContainerSequence.last()).attributeOwnerId
+                    element.attributeOwnerId = element.attributeOwnerIdBeforeInline!!.attributeOwnerId
+                    element.attributeOwnerIdBeforeInline = null
+                }
+                element.acceptChildrenVoid(this)
             }
         })
     }

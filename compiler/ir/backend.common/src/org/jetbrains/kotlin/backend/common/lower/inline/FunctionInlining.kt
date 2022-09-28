@@ -31,9 +31,7 @@ import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrReturnableBlockSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
@@ -83,6 +81,7 @@ class FunctionInlining(
     val innerClassesSupport: InnerClassesSupport? = null,
     val insertAdditionalImplicitCasts: Boolean = false,
     val inlinePureArguments: Boolean = true,
+    val regenerateInlinedAnonymousObjects: Boolean = false,
 ) : IrElementTransformerVoidWithContext(), BodyLoweringPass {
     constructor(context: CommonBackendContext) : this(context, DefaultInlineFunctionResolver(context), null)
     constructor(context: CommonBackendContext, innerClassesSupport: InnerClassesSupport) : this(
@@ -135,7 +134,24 @@ class FunctionInlining(
             ?: (containerScope?.irElement as? IrDeclaration)?.parent
 
         val inliner = Inliner(expression, actualCallee, currentScope ?: containerScope!!, parent, context)
-        return inliner.inline()
+        return inliner.inline().markAsRegenerated()
+    }
+
+    private fun IrReturnableBlock.markAsRegenerated(): IrReturnableBlock {
+        if (!regenerateInlinedAnonymousObjects) return this
+        acceptVoid(object : IrElementVisitorVoid {
+            private fun IrAttributeContainer.setUpCorrectAttributeOwner() {
+                if (this.attributeOwnerId == this) return
+                this.attributeOwnerIdBeforeInline = this.attributeOwnerId
+                this.attributeOwnerId = this
+            }
+
+            override fun visitElement(element: IrElement) {
+                if (element is IrAttributeContainer) element.setUpCorrectAttributeOwner()
+                element.acceptChildrenVoid(this)
+            }
+        })
+        return this
     }
 
     private val IrFunction.needsInlining get() = this.isInline && !this.isExternal
@@ -264,10 +280,12 @@ class FunctionInlining(
                     else
                         (argument.copy() as IrExpression)
 
-                // This assignment is required for JVM backend in `LocalDeclarationsLowering`. We need to create exact the same constructor
-                // for inlined anonymous class as for original one in case if inlined one will be dropped. To achieve it we need information
-                // about original type in access expression.
-                ret.attributeOwnerId = expression.attributeOwnerId
+                if (ret is IrGetValue) {
+                    // This assignment is required for JVM backend in `LocalDeclarationsLowering`. We need to create exact the same constructor
+                    // for inlined anonymous class as for original one in case if inlined one will be dropped. To achieve it we need information
+                    // about original type in access expression.
+                    ret.attributeOwnerId = expression.attributeOwnerId
+                }
                 if (insertAdditionalImplicitCasts)
                     ret = ret.implicitCastIfNeededTo(newExpression.type)
                 return ret
