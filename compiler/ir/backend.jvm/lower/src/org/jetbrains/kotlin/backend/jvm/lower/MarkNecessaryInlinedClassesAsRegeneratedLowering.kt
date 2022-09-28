@@ -203,8 +203,7 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         this.acceptChildrenVoid(object : IrElementVisitorVoid {
             private fun checkAndSetUpCorrectAttributes(element: IrAttributeContainer) {
                 when {
-                    element in mustBeRegenerated -> element.acceptChildrenVoid(this)
-                    element.attributeOwnerIdBeforeInline != null -> element.setUpOriginalAttributes(mustBeRegenerated)
+                    element !in mustBeRegenerated && element.attributeOwnerIdBeforeInline != null -> element.setUpOriginalAttributes()
                     else -> element.acceptChildrenVoid(this)
                 }
             }
@@ -227,12 +226,13 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         })
     }
 
-    private fun IrElement.setUpOriginalAttributes(mustBeRegenerated: Set<IrAttributeContainer>) {
+    private fun IrElement.setUpOriginalAttributes() {
         acceptVoid(object : IrElementVisitorVoid {
             override fun visitElement(element: IrElement) {
                 if (element is IrAttributeContainer && element.attributeOwnerIdBeforeInline != null) {
-//                    val attributeContainerSequence = generateSequence(element) { it.attributeOwnerIdBeforeInline }
-//                    element.attributeOwnerId = (attributeContainerSequence.firstOrNull { it in mustBeRegenerated } ?: attributeContainerSequence.last()).attributeOwnerId
+                    // Technically we need to generate SEQUENCE of `element.attributeOwnerIdBeforeInline` and find the original one.
+                    //  But this is not needed because we process all functions in the same order as they were processed by FunctionInlining.
+                    //  This mean that when we start to precess current container, all inner ones in SEQUENCE will already be processed.
                     element.attributeOwnerId = element.attributeOwnerIdBeforeInline!!.attributeOwnerId
                     element.attributeOwnerIdBeforeInline = null
                 }
