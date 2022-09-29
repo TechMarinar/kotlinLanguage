@@ -53,6 +53,7 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             private val containersStack = mutableListOf<IrAttributeContainer>()
             private val inlinableParameters = mutableListOf<IrValueParameter>()
             private val reifiedArguments = mutableListOf<IrType>()
+            private var processingBeforeInlineDeclaration = false
 
             fun IrContainerExpression.getInlinableParameters(): List<IrValueParameter> {
                 val call = (this.statements.first() as IrInlineMarker).inlineCall
@@ -81,7 +82,11 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
                 if (declaration.hasReifiedTypeArguments(reifiedArguments)) {
                     saveDeclarationsFromStackIntoRegenerationPool()
                 }
-                declaration.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this) // check if we need to save THIS declaration
+                if (!processingBeforeInlineDeclaration) {
+                    processingBeforeInlineDeclaration = true
+                    declaration.attributeOwnerIdBeforeInline?.acceptChildrenVoid(this) // check if we need to save THIS declaration
+                    processingBeforeInlineDeclaration = false
+                }
                 declaration.acceptChildrenVoid(this) // check if we need to save INNER declarations
                 containersStack.removeLast()
             }
