@@ -23,6 +23,8 @@ abstract class IrInlineMarker : IrElementBase(), IrStatement {
 
     abstract val callee: IrFunction
 
+    abstract val isInlineOnLambda: Boolean
+
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R =
         visitor.visitInlineMarker(this, data)
 

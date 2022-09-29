@@ -6,18 +6,17 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.ir.wasExplicitlyInlined
 import org.jetbrains.kotlin.backend.common.phaser.makeIrModulePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.functionInliningPhase
 import org.jetbrains.kotlin.backend.jvm.ir.isInlineParameter
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrInlineMarker
 import org.jetbrains.kotlin.ir.expressions.IrContainerExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionExpression
-import org.jetbrains.kotlin.ir.expressions.IrReturnableBlock
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.util.getArgumentsWithIr
 import org.jetbrains.kotlin.ir.util.statements
@@ -53,11 +52,6 @@ class CreateSeparateCallForInlinedLambdasLowering(val context: JvmBackendContext
         }
 
         return super.visitContainerExpression(expression)
-    }
-
-    private fun IrExpression.wasExplicitlyInlined(): Boolean {
-        return this is IrReturnableBlock && this.statements.firstOrNull() is IrInlineMarker &&
-                inlineFunctionSymbol?.owner?.origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA
     }
 
     private fun IrInlineMarker.getOnlyInlinableArguments(): List<IrFunctionExpression> {

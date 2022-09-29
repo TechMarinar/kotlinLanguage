@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.ir.wasExplicitlyInlined
 import org.jetbrains.kotlin.backend.common.lower.inline.InlinedFunctionReference
 import org.jetbrains.kotlin.backend.common.phaser.makeIrModulePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
@@ -44,18 +45,6 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
         }
 
         return super.visitBlock(expression)
-    }
-
-    private fun IrExpression.wasExplicitlyInlined(): Boolean {
-        return this is IrReturnableBlock && this.statements.firstOrNull() is IrInlineMarker &&
-                inlineFunctionSymbol?.owner?.origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA
-    }
-
-    override fun visitCall(expression: IrCall): IrExpression {
-        if (expression.symbol == context.ir.symbols.singleArgumentInlineFunction) {
-            return expression
-        }
-        return super.visitCall(expression)
     }
 
     private fun IrReturnableBlock.collectDeclarationsThatMustBeRegenerated(): Set<IrAttributeContainer> {

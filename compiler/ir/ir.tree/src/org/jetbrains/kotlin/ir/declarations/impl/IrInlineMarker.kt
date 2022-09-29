@@ -14,4 +14,5 @@ class IrInlineMarkerImpl(
     override val endOffset: Int,
     override val inlineCall: IrCall,
     override val callee: IrFunction,
+    override val isInlineOnLambda: Boolean,
 ) : IrInlineMarker()

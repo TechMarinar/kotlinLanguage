@@ -232,7 +232,9 @@ class FunctionInlining(
 
             val fileEntry = (parent as? IrDeclaration)?.fileOrNull?.fileEntry
             if (fileEntry != null && !callee.isInlineOnly()) {
-                newStatements += IrInlineMarkerImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, callSite as IrCall, callee)
+                newStatements += IrInlineMarkerImpl(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, callSite as IrCall, callee, callee.origin == IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA
+                )
             }
             newStatements.addAll(evaluationStatements)
             statements.mapTo(newStatements) { it.transform(transformer, data = null) as IrStatement }

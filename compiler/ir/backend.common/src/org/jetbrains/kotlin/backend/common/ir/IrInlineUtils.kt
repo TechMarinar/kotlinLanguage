@@ -127,3 +127,9 @@ fun IrInlinable.inline(target: IrDeclarationParent, arguments: List<IrValueDecla
             }
         }
     }
+
+fun IrExpression.wasExplicitlyInlined(): Boolean {
+    if (this !is IrBlock) return false
+    val marker = this.statements.firstOrNull() as? IrInlineMarker ?: return false
+    return !marker.isInlineOnLambda
+}
