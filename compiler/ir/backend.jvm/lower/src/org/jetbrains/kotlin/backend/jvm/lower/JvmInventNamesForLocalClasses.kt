@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.lower.InventNamesForLocalClasses
+import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.common.phaser.makeIrModulePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.codegen.JvmCodegenUtil
@@ -26,21 +27,11 @@ val inventNamesForLocalClassesPhase = makeIrModulePhase<JvmBackendContext>(
     prerequisite = setOf(mainMethodGenerationPhase)
 )
 
-val inventNamesForLocalClassesPhase2 = makeIrModulePhase<JvmBackendContext>(
-//val inventNamesForLocalClassesPhase = makeIrFilePhase<JvmBackendContext>(
-    { context -> JvmInventNamesForLocalClasses(context) },
-    name = "InventNamesForLocalClasses2",
-    description = "Invent names for local classes and anonymous objects",
-    // MainMethodGeneration introduces lambdas, needing names for their local classes.
-    prerequisite = setOf(mainMethodGenerationPhase)
-)
-
-val inventNamesForNewLocalClassesPhase = makeIrModulePhase<JvmBackendContext>(
-    { context -> JvmInventNamesForNewLocalClasses(context) },
-    name = "InventNamesForLocalClasses3",
-    description = "Invent names for local classes and anonymous objects",
-    // MainMethodGeneration introduces lambdas, needing names for their local classes.
-    prerequisite = setOf(mainMethodGenerationPhase)
+val inventNamesForInlinedLocalClassesPhase = makeIrFilePhase<JvmBackendContext>(
+    { context -> JvmInventNamesForInlinedAnonymousObjects(context) },
+    name = "InventNamesForInlinedLocalClasses",
+    description = "Invent names for INLINED local classes and anonymous objects",
+    prerequisite = setOf(inventNamesForLocalClassesPhase)
 )
 
 open class JvmInventNamesForLocalClasses(
@@ -71,15 +62,9 @@ open class JvmInventNamesForLocalClasses(
 }
 
 // TODO try to use only one "InventNames"
-class JvmInventNamesForNewLocalClasses(context: JvmBackendContext) : JvmInventNamesForLocalClasses(context) {
-    private val namesToIndex = mutableMapOf<String, Int>()
+class JvmInventNamesForInlinedAnonymousObjects(context: JvmBackendContext) : JvmInventNamesForLocalClasses(context) {
     override fun putLocalClassName(declaration: IrAttributeContainer, localClassName: String) {
-        if (context.getLocalClassType(declaration) != null) return
-        val inlinedName = localClassName + "\$\$inlined"
-        val index = namesToIndex[inlinedName]
-        namesToIndex[inlinedName] = (index ?: -1) + 1
-
-        val safeName = if (index == null) inlinedName else inlinedName + index
-        context.putLocalClassType(declaration, Type.getObjectType(safeName))
+        if (declaration.attributeOwnerIdBeforeInline == null) return
+        context.putLocalClassType(declaration, Type.getObjectType(localClassName))
     }
 }

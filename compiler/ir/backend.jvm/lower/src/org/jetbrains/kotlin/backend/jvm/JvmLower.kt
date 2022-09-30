@@ -80,8 +80,8 @@ private val validateIrAfterLowering = makeCustomPhase(
 )
 
 // TODO make all lambda-related stuff work with IrFunctionExpression and drop this phase
-//private val provisionalFunctionExpressionPhase = makeIrFilePhase<CommonBackendContext>(
-private val provisionalFunctionExpressionPhase = makeIrModulePhase<CommonBackendContext>(
+private val provisionalFunctionExpressionPhase = makeIrFilePhase<CommonBackendContext>(
+//private val provisionalFunctionExpressionPhase = makeIrModulePhase<CommonBackendContext>(
     { ProvisionalFunctionExpressionLowering() },
     name = "FunctionExpression",
     description = "Transform IrFunctionExpression to a local function reference"
@@ -338,7 +338,11 @@ internal val functionInliningPhase = makeIrModulePhase<JvmBackendContext>(
                 return (symbol.owner as? IrSimpleFunction)?.resolveFakeOverride() ?: symbol.owner
             }
         }
-        FunctionInlining(context, JvmInlineFunctionResolver(), context.innerClassesSupport, inlinePureArguments = false)
+        FunctionInlining(
+            context, JvmInlineFunctionResolver(), context.innerClassesSupport,
+            inlinePureArguments = false,
+            regenerateInlinedAnonymousObjects = true
+        )
     },
     name = "FunctionInliningPhase",
     description = "Perform function inlining",
@@ -357,6 +361,8 @@ internal val functionInliningPhase = makeIrModulePhase<JvmBackendContext>(
 )
 
 private val jvmFilePhases = listOf(
+    provisionalFunctionExpressionPhase,
+
     kCallableNamePropertyPhase,
     annotationPhase,
     annotationImplementationPhase,
@@ -401,6 +407,8 @@ private val jvmFilePhases = listOf(
     // makePatchParentsPhase(),
 
     removeDuplicatedInlinedLocalClasses,
+    inventNamesForInlinedLocalClassesPhase,
+
     jvmLocalClassExtractionPhase,
 
     staticCallableReferencePhase,
@@ -501,9 +509,6 @@ private fun buildJvmLoweringPhases(
                 functionInliningPhase then
                 createSeparateCallForInlinedLambdas then
                 markNecessaryInlinedClassesAsRegenerated then
-                inventNamesForNewLocalClassesPhase then
-                provisionalFunctionExpressionPhase then
-//            inventNamesForLocalClassesPhase2 then
 //            sharedVariablesPhase then
 
 
