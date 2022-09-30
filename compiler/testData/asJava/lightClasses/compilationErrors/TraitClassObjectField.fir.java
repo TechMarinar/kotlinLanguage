@@ -8,10 +8,10 @@ public abstract interface TraitClassObjectField /* TraitClassObjectField*/ {
 
 public static final class Companion /* TraitClassObjectField.Companion*/ {
   @org.jetbrains.annotations.Nullable()
-  private final java.lang.String x = "" /* initializer type: java.lang.String */ /* constant value  */;
+  private static final java.lang.String x = "" /* initializer type: java.lang.String */ /* constant value  */;
 
   @org.jetbrains.annotations.Nullable()
-  private final java.lang.String y;
+  private static final java.lang.String y;
 
   private  Companion();//  .ctor()
 
