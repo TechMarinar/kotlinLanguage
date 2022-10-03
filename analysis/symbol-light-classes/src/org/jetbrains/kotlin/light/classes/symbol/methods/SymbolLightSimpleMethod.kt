@@ -41,7 +41,7 @@ internal class SymbolLightSimpleMethod(
 ) {
 
     private val _name: String by lazyPub {
-        functionSymbol.computeJvmMethodName(functionSymbol.name.asString(), containingClass)
+        computeJvmMethodName(functionSymbol, functionSymbol.name.asString(), containingClass)
     }
 
     override fun getName(): String = _name

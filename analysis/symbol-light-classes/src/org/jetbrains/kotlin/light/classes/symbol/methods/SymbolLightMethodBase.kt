@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
 import org.jetbrains.kotlin.light.classes.symbol.tryGetEffectiveVisibility
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 
-context(KtAnalysisSession)
 internal abstract class SymbolLightMethodBase(
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: KtLightClass,
@@ -90,20 +89,21 @@ internal abstract class SymbolLightMethodBase(
 
     override fun getDefaultValue(): PsiAnnotationMemberValue? = null
 
-    protected fun <T> T.computeJvmMethodName(
+    protected fun <T> KtAnalysisSession.computeJvmMethodName(
+        method: T,
         defaultName: String,
         containingClass: SymbolLightClassBase,
         annotationUseSiteTarget: AnnotationUseSiteTarget? = null
     ): String where T : KtAnnotatedSymbol, T : KtSymbolWithVisibility, T : KtCallableSymbol {
-        getJvmNameFromAnnotation(annotationUseSiteTarget)?.let { return it }
+        method.getJvmNameFromAnnotation(annotationUseSiteTarget)?.let { return it }
 
-        val effectiveVisibilityIfNotInternal = (visibility != Visibilities.Internal).ifTrue {
-            tryGetEffectiveVisibility(this)
-        } ?: this.visibility
+        val effectiveVisibilityIfNotInternal = (method.visibility != Visibilities.Internal).ifTrue {
+            tryGetEffectiveVisibility(method)
+        } ?: method.visibility
 
         if (effectiveVisibilityIfNotInternal != Visibilities.Internal) return defaultName
         if (containingClass is KtLightClassForFacade) return defaultName
-        if (hasPublishedApiAnnotation(annotationUseSiteTarget)) return defaultName
+        if (method.hasPublishedApiAnnotation(annotationUseSiteTarget)) return defaultName
 
         val moduleName = (getKtModule(project) as? KtSourceModule)?.moduleName ?: return defaultName
         return mangleInternalName(defaultName, moduleName)

@@ -57,7 +57,7 @@ internal class SymbolLightAccessorMethod(
             val defaultName = containingPropertySymbol.name.identifier.let {
                 if (containingClass.isAnnotationType) it else it.abiName()
             }
-            containingPropertySymbol.computeJvmMethodName(defaultName, containingClass, accessorSite)
+            computeJvmMethodName(containingPropertySymbol, defaultName, containingClass, accessorSite)
         }
     }
 
