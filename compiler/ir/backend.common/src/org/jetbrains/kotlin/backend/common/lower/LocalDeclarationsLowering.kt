@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.common.lower
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.descriptors.synthesizedString
+import org.jetbrains.kotlin.backend.common.ir.wasExplicitlyInlined
 import org.jetbrains.kotlin.backend.common.lower.inline.isInlineParameter
 import org.jetbrains.kotlin.backend.common.runOnFilePostfix
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -970,6 +971,10 @@ class LocalDeclarationsLowering(
             irElement.accept(object : IrElementVisitor<Unit, Data> {
                 override fun visitElement(element: IrElement, data: Data) {
                     element.acceptChildren(this, data)
+                }
+
+                override fun visitBlock(expression: IrBlock, data: Data) {
+                    super.visitBlock(expression, data.withInline(expression.wasExplicitlyInlined()))
                 }
 
                 override fun visitFunctionExpression(expression: IrFunctionExpression, data: Data) {
