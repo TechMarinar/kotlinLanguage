@@ -112,6 +112,10 @@ fun main(args: Array<String>) {
                 model("box/", pattern = "^([^_](.+))\\.kt$")
             }
 
+            testClass<AbstractIrBoxJsES6Test> {
+                model("box/", pattern = "^([^_](.+))\\.kt$")
+            }
+
             testClass<AbstractIrJsTypeScriptExportTest> {
                 model("typescript-export/", pattern = "^([^_](.+))\\.kt$")
             }
@@ -147,6 +151,18 @@ fun main(args: Array<String>) {
             }
 
             testClass<AbstractIrJsCodegenInlineTest> {
+                model("codegen/boxInline")
+            }
+
+            testClass<AbstractIrJsES6CodegenBoxTest> {
+                model("codegen/box", excludeDirs = jvmOnlyBoxTests)
+            }
+
+            testClass<AbstractIrJsES6CodegenBoxErrorTest> {
+                model("codegen/boxError", excludeDirs = jvmOnlyBoxTests)
+            }
+
+            testClass<AbstractIrJsES6CodegenInlineTest> {
                 model("codegen/boxInline")
             }
 
