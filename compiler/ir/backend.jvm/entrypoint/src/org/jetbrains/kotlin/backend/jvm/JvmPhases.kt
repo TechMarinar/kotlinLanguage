@@ -42,7 +42,6 @@ private class FileCodegen(private val context: JvmBackendContext, private val ge
                     throw AssertionError("File-level declaration should be IrClass after JvmLower, got: " + loweredClass.render())
                 }
                 ClassCodegen.getOrCreate(loweredClass, context).generate()
-                context.state.factory.currentOutput.forEach { println(it.asText()) }
             }
         }
     }
