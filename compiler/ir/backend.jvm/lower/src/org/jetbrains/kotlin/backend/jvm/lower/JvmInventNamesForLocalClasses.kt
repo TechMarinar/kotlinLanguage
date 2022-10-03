@@ -35,8 +35,9 @@ val inventNamesForInlinedLocalClassesPhase = makeIrFilePhase<JvmBackendContext>(
 )
 
 open class JvmInventNamesForLocalClasses(
-    protected val context: JvmBackendContext
-) : InventNamesForLocalClasses(allowTopLevelCallables = true) {
+    protected val context: JvmBackendContext,
+    generateNamesForRegeneratedObjects: Boolean = false
+) : InventNamesForLocalClasses(allowTopLevelCallables = true, generateNamesForRegeneratedObjects) {
     override fun computeTopLevelClassName(clazz: IrClass): String {
         val file = clazz.parent as? IrFile
             ?: throw AssertionError("Top-level class expected: ${clazz.render()}")
@@ -62,7 +63,7 @@ open class JvmInventNamesForLocalClasses(
 }
 
 // TODO try to use only one "InventNames"
-class JvmInventNamesForInlinedAnonymousObjects(context: JvmBackendContext) : JvmInventNamesForLocalClasses(context) {
+class JvmInventNamesForInlinedAnonymousObjects(context: JvmBackendContext) : JvmInventNamesForLocalClasses(context, true) {
     override fun putLocalClassName(declaration: IrAttributeContainer, localClassName: String) {
         if (declaration.attributeOwnerIdBeforeInline == null) return
         context.putLocalClassType(declaration, Type.getObjectType(localClassName))
