@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.light.classes.symbol.NullabilityType
 import org.jetbrains.kotlin.light.classes.symbol.annotations.computeAnnotations
-import org.jetbrains.kotlin.light.classes.symbol.annotations.hasDeprecatedAnnotation
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassForEnumEntry
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.SymbolLightMemberModifierList
@@ -50,14 +49,6 @@ internal class SymbolLightConstructor(
             )
         }
     }
-
-    private val _isDeprecated: Boolean by lazyPub {
-        withFunctionSymbol { constructorSymbol ->
-            constructorSymbol.hasDeprecatedAnnotation()
-        }
-    }
-
-    override fun isDeprecated(): Boolean = _isDeprecated
 
     private val _modifiers: Set<String> by lazyPub {
         // FIR treats an enum entry as an anonymous object w/ its own ctor (not default one).

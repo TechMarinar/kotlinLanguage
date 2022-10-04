@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.light.classes.symbol.SymbolLightIdentifier
+import org.jetbrains.kotlin.light.classes.symbol.annotations.hasDeprecatedAnnotation
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
 import org.jetbrains.kotlin.light.classes.symbol.classes.analyzeForLightClasses
 import org.jetbrains.kotlin.light.classes.symbol.getOrRestoreSymbol
@@ -78,6 +79,14 @@ internal abstract class SymbolLightMethod(
             }
         }
     }
+
+    private val _isDeprecated: Boolean by lazyPub {
+        withFunctionSymbol { functionSymbol ->
+            functionSymbol.hasDeprecatedAnnotation()
+        }
+    }
+
+    override fun isDeprecated(): Boolean = _isDeprecated
 
     private val _identifier: PsiIdentifier by lazyPub {
         withFunctionSymbol { functionSymbol ->
