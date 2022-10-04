@@ -89,6 +89,28 @@ open class SymbolTable(
 
     val lock = IrLock()
 
+    @Suppress("unused")
+    val allUnboundEx: Set<IrSymbol>
+        get() = buildSet {
+            fun <D : DeclarationDescriptor, B : IrSymbolOwner, S : IrBindableSymbol<D, B>> addUnboundEx(symbolTable: FlatSymbolTable<D, B, S>) {
+                val result = hashSetOf<IrSymbol>()
+                symbolTable.descriptorToSymbol.values.filterTo(result) { !it.isBound }
+                symbolTable.idSigToSymbol.values.filterTo(result) { !it.isBound }
+                result.removeAll(symbolTable.unboundSymbols)
+
+                this += result
+            }
+
+            addUnboundEx(classSymbolTable)
+            addUnboundEx(constructorSymbolTable)
+            addUnboundEx(enumEntrySymbolTable)
+            addUnboundEx(fieldSymbolTable)
+            addUnboundEx(simpleFunctionSymbolTable)
+            addUnboundEx(propertySymbolTable)
+            addUnboundEx(typeAliasSymbolTable)
+            addUnboundEx(globalTypeParameterSymbolTable)
+        }
+
     @Suppress("LeakingThis")
     val lazyWrapper = IrLazySymbolTable(this)
 
