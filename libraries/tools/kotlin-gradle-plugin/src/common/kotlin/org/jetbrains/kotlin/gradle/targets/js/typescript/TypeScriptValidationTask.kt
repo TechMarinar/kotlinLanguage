@@ -33,9 +33,6 @@ constructor(
     protected val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
 
     @get:Internal
-    override val nodeModulesRequired: Boolean get() = false
-
-    @get:Internal
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         get() = setOf(nodeJs.versions.typescript)
 

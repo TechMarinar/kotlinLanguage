@@ -49,10 +49,6 @@ constructor(
     val inputFileProperty: RegularFileProperty = project.newFileProperty()
 
     @get:Internal
-    override val nodeModulesRequired: Boolean
-        get() = true
-
-    @get:Internal
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency> by lazy {
         mutableSetOf<RequiredKotlinJsDependency>().also {
             if (sourceMapStackTraces) {

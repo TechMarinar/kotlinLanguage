@@ -106,9 +106,6 @@ constructor(
         }
     }
 
-    override val nodeModulesRequired: Boolean
-        @Internal get() = testFramework!!.nodeModulesRequired
-
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         @Internal get() = testFramework!!.requiredNpmDependencies
 

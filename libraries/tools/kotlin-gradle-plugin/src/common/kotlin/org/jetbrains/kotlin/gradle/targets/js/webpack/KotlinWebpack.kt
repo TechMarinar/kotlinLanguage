@@ -295,9 +295,6 @@ constructor(
         )
     }
 
-    override val nodeModulesRequired: Boolean
-        @Internal get() = true
-
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         @Internal get() = createWebpackConfig(true).getRequiredDependencies(versions)
 
