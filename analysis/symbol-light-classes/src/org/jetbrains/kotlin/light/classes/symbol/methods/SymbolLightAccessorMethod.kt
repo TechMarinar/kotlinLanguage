@@ -226,18 +226,14 @@ internal class SymbolLightAccessorMethod(
     override fun hashCode(): Int = propertyAccessorDeclaration.hashCode()
 
     private val _parametersList by lazyPub {
-        analyze(ktModule) {
-            val propertySymbol = propertySymbol()
-            val accessorSymbol = propertyAccessorSymbol()
-            SymbolLightParameterList(this@SymbolLightAccessorMethod, propertySymbol) { builder ->
-                val propertyParameter = (accessorSymbol as? KtPropertySetterSymbol)?.parameter
-                if (propertyParameter != null) {
-                    builder.addParameter(
-                        SymbolLightSetterParameter(
-                            propertySymbol, propertyParameter, this@SymbolLightAccessorMethod
-                        )
+        SymbolLightParameterList(this@SymbolLightAccessorMethod, propertyAccessorSymbolPointer, ktModule) { builder, accessorSymbol ->
+            val propertyParameter = (accessorSymbol as? KtPropertySetterSymbol)?.parameter
+            if (propertyParameter != null) {
+                builder.addParameter(
+                    SymbolLightSetterParameter(
+                        propertySymbol(), propertyParameter, this@SymbolLightAccessorMethod
                     )
-                }
+                )
             }
         }
     }

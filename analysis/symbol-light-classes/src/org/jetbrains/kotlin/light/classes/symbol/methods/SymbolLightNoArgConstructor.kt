@@ -46,7 +46,12 @@ internal class SymbolLightNoArgConstructor(
 
     private val _parameterList: PsiParameterList by lazyPub {
         analyzeForLightClasses(containingClass.ktModule) {
-            SymbolLightParameterList(this@SymbolLightNoArgConstructor, callableSymbol = null) {}
+            SymbolLightParameterList(
+                parent = this@SymbolLightNoArgConstructor,
+                ktModule = containingClass.ktModule,
+                callableSymbolPointer = null,
+                parameterPopulator = null,
+            )
         }
     }
 

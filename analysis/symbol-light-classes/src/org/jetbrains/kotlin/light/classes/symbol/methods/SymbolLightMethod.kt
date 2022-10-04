@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.light.classes.symbol.SymbolLightIdentifier
@@ -54,28 +55,28 @@ internal abstract class SymbolLightMethod(
     override fun isVarArgs(): Boolean = _isVarArgs
 
     private val _parametersList by lazyPub {
-        withFunctionSymbol { functionSymbol ->
-            SymbolLightParameterList(this@SymbolLightMethod, functionSymbol) { builder ->
-                functionSymbol.valueParameters.mapIndexed { index, parameter ->
-                    val needToSkip = argumentsSkipMask?.get(index) == true
-                    if (!needToSkip) {
-                        builder.addParameter(
-                            SymbolLightParameter(
-                                parameterSymbol = parameter,
-                                containingMethod = this@SymbolLightMethod
-                            )
-                        )
-                    }
-                }
+        SymbolLightParameterList(this@SymbolLightMethod, functionSymbolPointer, ktModule) { builder, functionSymbol ->
+            requireIsInstance<KtFunctionLikeSymbol>(functionSymbol)
 
-                if ((functionSymbol as? KtFunctionSymbol)?.isSuspend == true) {
+            functionSymbol.valueParameters.mapIndexed { index, parameter ->
+                val needToSkip = argumentsSkipMask?.get(index) == true
+                if (!needToSkip) {
                     builder.addParameter(
-                        SymbolLightSuspendContinuationParameter(
-                            functionSymbol = functionSymbol,
+                        SymbolLightParameter(
+                            parameterSymbol = parameter,
                             containingMethod = this@SymbolLightMethod
                         )
                     )
                 }
+            }
+
+            if ((functionSymbol as? KtFunctionSymbol)?.isSuspend == true) {
+                builder.addParameter(
+                    SymbolLightSuspendContinuationParameter(
+                        functionSymbol = functionSymbol,
+                        containingMethod = this@SymbolLightMethod
+                    )
+                )
             }
         }
     }
