@@ -12,12 +12,10 @@ import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.annotations.*
 import org.jetbrains.kotlin.analysis.api.base.KtConstantValue
 import org.jetbrains.kotlin.analysis.api.components.DefaultTypeClassIds
-import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithModality
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithVisibility
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.*
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
 import org.jetbrains.kotlin.asJava.elements.KtLightMember
@@ -31,6 +29,7 @@ import org.jetbrains.kotlin.light.classes.symbol.annotations.SymbolPsiExpression
 import org.jetbrains.kotlin.light.classes.symbol.annotations.SymbolPsiLiteral
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.psi.KtDeclaration
 import java.util.*
 
 internal fun <L : Any> L.invalidAccess(): Nothing =
@@ -284,3 +283,8 @@ internal fun KtConstantValue.createPsiLiteral(parent: PsiElement): PsiExpression
 
 
 internal fun BitSet.copy(): BitSet = clone() as BitSet
+
+internal inline fun <reified S : KtSymbol> KtAnalysisSession.getOrRestoreSymbol(
+    psiDeclaration: KtDeclaration?,
+    pointer: KtSymbolPointer<S>,
+): S = psiDeclaration?.getSymbolOfType() ?: requireNotNull(pointer.restoreSymbol()) { "pointer already disposed" }

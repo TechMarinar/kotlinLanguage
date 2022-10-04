@@ -285,6 +285,7 @@ internal fun SymbolLightClassBase.createPropertyAccessors(
                 containingClass = this@createPropertyAccessors,
                 isTopLevel = isTopLevel,
                 suppressStatic = suppressStatic,
+                ktModule = ktModule,
             )
         )
     }
@@ -309,6 +310,7 @@ internal fun SymbolLightClassBase.createPropertyAccessors(
                 containingClass = this@createPropertyAccessors,
                 isTopLevel = isTopLevel,
                 suppressStatic = suppressStatic,
+                ktModule = ktModule,
             )
         )
     }
