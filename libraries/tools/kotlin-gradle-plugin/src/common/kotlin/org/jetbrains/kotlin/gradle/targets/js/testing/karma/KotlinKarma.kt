@@ -30,8 +30,6 @@ import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.*
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
-import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackMajorVersion
-import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackMajorVersion.Companion.choose
 import org.jetbrains.kotlin.gradle.tasks.KotlinTest
 import org.jetbrains.kotlin.gradle.testing.internal.reportsDir
 import org.jetbrains.kotlin.gradle.utils.appendLine
@@ -74,8 +72,6 @@ class KotlinKarma(
     override val settingsState: String
         get() = "KotlinKarma($config)"
 
-    private val webpackMajorVersion = PropertiesProvider(project).webpackMajorVersion
-
     val webpackConfig = KotlinWebpackConfig(
         configDirectory = project.projectDir.resolve("webpack.config.d"),
         sourceMaps = true,
@@ -83,7 +79,6 @@ class KotlinKarma(
         export = false,
         progressReporter = true,
         progressReporterPathFilter = nodeRootPackageDir.absolutePath,
-        webpackMajorVersion = webpackMajorVersion,
         rules = project.objects.webpackRulesContainer(),
     )
 
@@ -244,23 +239,14 @@ class KotlinKarma(
         config.frameworks.add("webpack")
         requiredDependencies.add(versions.karmaWebpack)
         requiredDependencies.add(
-            webpackMajorVersion.choose(
-                versions.webpack,
-                versions.webpack4
-            )
+            versions.webpack
         )
         requiredDependencies.add(
-            webpackMajorVersion.choose(
-                versions.webpackCli,
-                versions.webpackCli3
-            )
+            versions.webpackCli
         )
         requiredDependencies.add(versions.formatUtil)
         requiredDependencies.add(
-            webpackMajorVersion.choose(
-                versions.sourceMapLoader,
-                versions.sourceMapLoader1
-            )
+            versions.sourceMapLoader
         )
 
         addPreprocessor("webpack")
@@ -276,14 +262,12 @@ class KotlinKarma(
                 // noinspection JSUnnecessarySemicolon
                 ;(function(config) {
                     const webpack = require('webpack');
-                    ${
-                    if (webpackMajorVersion != WebpackMajorVersion.V4) {
-                        """
-                            // https://github.com/webpack/webpack/issues/12951
-                            const PatchSourceMapSource = require('kotlin-test-js-runner/webpack-5-debug');
-                            config.plugins.push(new PatchSourceMapSource())
-                            """
-                    } else ""
+                ${
+                    """
+                    // https://github.com/webpack/webpack/issues/12951
+                    const PatchSourceMapSource = require('kotlin-test-js-runner/webpack-5-debug');
+                    config.plugins.push(new PatchSourceMapSource())
+                    """
                 }
                     config.plugins.push(new webpack.SourceMapDevToolPlugin({
                         moduleFilenameTemplate: "[absolute-resource-path]"

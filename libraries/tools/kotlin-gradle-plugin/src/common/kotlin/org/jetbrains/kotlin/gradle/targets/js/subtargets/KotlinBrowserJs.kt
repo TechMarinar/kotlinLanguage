@@ -29,7 +29,6 @@ import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig.Mode
 import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackDevtool
-import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackMajorVersion.Companion.choose
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.doNotTrackStateCompat
@@ -46,9 +45,6 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
     private val runTaskConfigurations: MutableList<KotlinWebpack.() -> Unit> = mutableListOf()
     private val dceConfigurations: MutableList<KotlinJsDce.() -> Unit> = mutableListOf()
     private val distribution: Distribution = DefaultDistribution(project)
-    private val propertiesProvider = PropertiesProvider(project)
-    private val webpackMajorVersion
-        get() = propertiesProvider.webpackMajorVersion
 
     override val testTaskDescription: String
         get() = "Run all ${target.name} tests inside browser using karma and webpack"
@@ -148,33 +144,20 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
                     ),
                     listOf(compilation)
                 ) { task ->
-                    webpackMajorVersion.choose(
-                        { task.args.add(0, "serve") },
-                        { task.bin = "webpack-dev-server/bin/webpack-dev-server.js" }
-                    )()
+                    task.args.add(0, "serve")
 
                     task.description = "start ${type.name.toLowerCase()} webpack dev server"
 
-                    webpackMajorVersion.choose(
-                        {
-                            task.devServer = KotlinWebpackConfig.DevServer(
-                                open = true,
-                                static = mutableListOf(compilation.output.resourcesDir.canonicalPath),
-                                client = KotlinWebpackConfig.DevServer.Client(
-                                    KotlinWebpackConfig.DevServer.Client.Overlay(
-                                        errors = true,
-                                        warnings = false
-                                    )
-                                )
+                    task.devServer = KotlinWebpackConfig.DevServer(
+                        open = true,
+                        static = mutableListOf(compilation.output.resourcesDir.canonicalPath),
+                        client = KotlinWebpackConfig.DevServer.Client(
+                            KotlinWebpackConfig.DevServer.Client.Overlay(
+                                errors = true,
+                                warnings = false
                             )
-                        },
-                        {
-                            task.devServer = KotlinWebpackConfig.DevServer(
-                                open = true,
-                                contentBase = mutableListOf(compilation.output.resourcesDir.canonicalPath)
-                            )
-                        }
-                    )()
+                        )
+                    )
 
                     task.doNotTrackStateCompat("Tracked by external webpack tool")
 

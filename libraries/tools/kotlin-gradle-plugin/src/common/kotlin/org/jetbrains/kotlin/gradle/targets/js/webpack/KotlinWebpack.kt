@@ -29,7 +29,6 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.distsDirectory
 import org.jetbrains.kotlin.gradle.report.BuildMetricsService
-import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWebpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl.Companion.webpackRulesContainer
@@ -234,9 +233,6 @@ constructor(
         rules = project.objects.webpackRulesContainer(),
     )
 
-    @Input
-    val webpackMajorVersion = PropertiesProvider(project).webpackMajorVersion
-
     fun webpackConfigApplier(body: KotlinWebpackConfig.() -> Unit) {
         synthConfig.body()
         webpackConfigAppliers.add(body)
@@ -261,13 +257,11 @@ constructor(
         outputPath = if (forNpmDependencies) null else destinationDirectory,
         outputFileName = outputFileName,
         configDirectory = configDirectory,
-        bundleAnalyzerReportDir = if (!forNpmDependencies && report) reportDir else null,
         rules = rules,
         devServer = devServer,
         devtool = devtool,
         sourceMaps = sourceMaps,
         resolveFromModulesFirst = resolveFromModulesFirst,
-        webpackMajorVersion = webpackMajorVersion
     )
 
     private fun createRunner(): KotlinWebpackRunner {
@@ -295,8 +289,8 @@ constructor(
         )
     }
 
-    override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
-        @Internal get() = createWebpackConfig(true).getRequiredDependencies(versions)
+//    override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
+//        @Internal get() = createWebpackConfig(true).getRequiredDependencies(versions)
 
     private val isContinuous = project.gradle.startParameter.isContinuous
 

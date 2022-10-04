@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.gradle.targets.js.appendConfigsFromDir
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWebpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl
 import org.jetbrains.kotlin.gradle.targets.js.jsQuoted
-import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackMajorVersion.Companion.choose
 import org.jetbrains.kotlin.gradle.utils.appendLine
 import java.io.File
 import java.io.Serializable
@@ -42,8 +41,6 @@ data class KotlinWebpackConfig(
     var outputFileName: String? = entry?.name,
     @Internal
     var configDirectory: File? = null,
-    @Internal
-    var bundleAnalyzerReportDir: File? = null,
     @Internal
     var reportEvaluatedConfigFile: File? = null,
     @Input
@@ -68,9 +65,7 @@ data class KotlinWebpackConfig(
     @Optional
     var progressReporterPathFilter: String? = null,
     @Input
-    var resolveFromModulesFirst: Boolean = false,
-    @Input
-    val webpackMajorVersion: WebpackMajorVersion = WebpackMajorVersion.V5
+    var resolveFromModulesFirst: Boolean = false
 ) : WebpackRulesDsl {
     @get:Input
     @get:Optional
@@ -89,11 +84,6 @@ data class KotlinWebpackConfig(
 
     @get:Input
     @get:Optional
-    val bundleAnalyzerReportDirInput: String?
-        get() = bundleAnalyzerReportDir?.absoluteFile?.normalize()?.absolutePath
-
-    @get:Input
-    @get:Optional
     val reportEvaluatedConfigFileInput: String?
         get() = reportEvaluatedConfigFile?.absoluteFile?.normalize()?.absolutePath
 
@@ -101,38 +91,22 @@ data class KotlinWebpackConfig(
         mutableSetOf<RequiredKotlinJsDependency>().also {
             it.add(versions.kotlinJsTestRunner)
             it.add(
-                webpackMajorVersion.choose(
-                    versions.webpack,
-                    versions.webpack4
-                )
+                versions.webpack
             )
             it.add(
-                webpackMajorVersion.choose(
-                    versions.webpackCli,
-                    versions.webpackCli3
-                )
+                versions.webpackCli
             )
             it.add(versions.formatUtil)
 
-            if (bundleAnalyzerReportDir != null) {
-                it.add(versions.webpackBundleAnalyzer)
-            }
-
             if (sourceMaps) {
                 it.add(
-                    webpackMajorVersion.choose(
-                        versions.sourceMapLoader,
-                        versions.sourceMapLoader1
-                    )
+                    versions.sourceMapLoader
                 )
             }
 
             if (devServer != null) {
                 it.add(
-                    webpackMajorVersion.choose(
-                        versions.webpackDevServer,
-                        versions.webpackDevServer3
-                    )
+                    versions.webpackDevServer
                 )
             }
 
@@ -147,15 +121,6 @@ data class KotlinWebpackConfig(
         DEVELOPMENT("development"),
         PRODUCTION("production")
     }
-
-    @Suppress("unused")
-    data class BundleAnalyzerPlugin(
-        val analyzerMode: String,
-        val reportFilename: String,
-        val openAnalyzer: Boolean,
-        val generateStatsFile: Boolean,
-        val statsFilename: String
-    ) : Serializable
 
     @Suppress("unused")
     data class DevServer(
@@ -207,7 +172,6 @@ data class KotlinWebpackConfig(
             appendResolveModules()
             appendSourceMaps()
             appendDevServer()
-            appendReport()
             appendProgressReporter()
             rules.forEach { rule ->
                 if (rule.active) {
@@ -254,32 +218,6 @@ data class KotlinWebpackConfig(
         appendLine()
     }
 
-    private fun Appendable.appendReport() {
-        if (bundleAnalyzerReportDir == null) return
-
-        entry ?: error("Entry should be defined for report")
-
-        val reportBasePath = "${bundleAnalyzerReportDir!!.canonicalPath}/${entry!!.name}"
-        val config = BundleAnalyzerPlugin(
-            "static",
-            "$reportBasePath.report.html",
-            false,
-            true,
-            "$reportBasePath.stats.json"
-        )
-
-        //language=JavaScript 1.8
-        appendLine(
-            """
-                // save webpack-bundle-analyzer report 
-                var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin; 
-                config.plugins.push(new BundleAnalyzerPlugin(${json(config)}));
-                
-           """.trimIndent()
-        )
-        appendLine()
-    }
-
     private fun Appendable.appendDevServer() {
         if (devServer == null) return
 
@@ -311,16 +249,8 @@ data class KotlinWebpackConfig(
                         enforce: "pre"
                 });
                 config.devtool = ${devtool?.let { "'$it'" } ?: false};
-                ${
-                webpackMajorVersion.choose(
-                    "config.ignoreWarnings = [/Failed to parse source map/]",
-                    """
-                config.stats = config.stats || {}
-                Object.assign(config.stats, config.stats, {
-                    warningsFilter: [/Failed to parse source map/]
-                })
-                """
-                )
+            ${
+                "config.ignoreWarnings = [/Failed to parse source map/]"
             }
                 
             """.trimIndent()
