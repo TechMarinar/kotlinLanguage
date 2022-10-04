@@ -8,22 +8,25 @@ package org.jetbrains.kotlin.light.classes.symbol.methods
 import com.intellij.psi.PsiIdentifier
 import com.intellij.psi.PsiParameterList
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
-import org.jetbrains.kotlin.analysis.api.lifetime.isValid
 import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
+import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.light.classes.symbol.SymbolLightIdentifier
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
+import org.jetbrains.kotlin.light.classes.symbol.classes.analyzeForLightClasses
+import org.jetbrains.kotlin.light.classes.symbol.getOrRestoreSymbol
 import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightParameter
 import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightParameterList
 import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightSuspendContinuationParameter
 import org.jetbrains.kotlin.psi.KtDeclaration
+import org.jetbrains.kotlin.psi.KtFunction
 import java.util.*
 
-context(KtAnalysisSession)
 internal abstract class SymbolLightMethod(
-    private val functionSymbol: KtFunctionLikeSymbol,
+    functionSymbol: KtFunctionLikeSymbol,
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: SymbolLightClassBase,
     methodIndex: Int,
@@ -33,46 +36,64 @@ internal abstract class SymbolLightMethod(
     containingClass,
     methodIndex
 ) {
-    private var _isVarArgs: Boolean = functionSymbol.valueParameters.any { it.isVararg }
+    private val ktModule: KtModule = containingClass.ktModule
+
+    protected val functionDeclaration: KtFunction? = functionSymbol.psi as? KtFunction
+    protected val functionSymbolPointer: KtSymbolPointer<KtFunctionLikeSymbol> = functionSymbol.createPointer()
+    protected fun <T> withFunctionSymbol(action: KtAnalysisSession.(KtFunctionLikeSymbol) -> T): T = analyzeForLightClasses(ktModule) {
+        action(getOrRestoreSymbol(functionDeclaration, functionSymbolPointer))
+    }
+
+    private val _isVarArgs: Boolean by lazyPub {
+        functionDeclaration?.valueParameters?.any { it.isVarArg } ?: withFunctionSymbol { functionSymbol ->
+            functionSymbol.valueParameters.any { it.isVararg }
+        }
+    }
 
     override fun isVarArgs(): Boolean = _isVarArgs
 
     private val _parametersList by lazyPub {
-        SymbolLightParameterList(this, functionSymbol) { builder ->
-            functionSymbol.valueParameters.mapIndexed { index, parameter ->
-                val needToSkip = argumentsSkipMask?.get(index) == true
-                if (!needToSkip) {
+        withFunctionSymbol { functionSymbol ->
+            SymbolLightParameterList(this@SymbolLightMethod, functionSymbol) { builder ->
+                functionSymbol.valueParameters.mapIndexed { index, parameter ->
+                    val needToSkip = argumentsSkipMask?.get(index) == true
+                    if (!needToSkip) {
+                        builder.addParameter(
+                            SymbolLightParameter(
+                                parameterSymbol = parameter,
+                                containingMethod = this@SymbolLightMethod
+                            )
+                        )
+                    }
+                }
+
+                if ((functionSymbol as? KtFunctionSymbol)?.isSuspend == true) {
                     builder.addParameter(
-                        SymbolLightParameter(
-                            parameterSymbol = parameter,
+                        SymbolLightSuspendContinuationParameter(
+                            functionSymbol = functionSymbol,
                             containingMethod = this@SymbolLightMethod
                         )
                     )
                 }
             }
-            if ((functionSymbol as? KtFunctionSymbol)?.isSuspend == true) {
-                builder.addParameter(
-                    SymbolLightSuspendContinuationParameter(
-                        functionSymbol = functionSymbol,
-                        containingMethod = this@SymbolLightMethod
-                    )
-                )
-            }
         }
     }
 
     private val _identifier: PsiIdentifier by lazyPub {
-        SymbolLightIdentifier(this, functionSymbol)
+        withFunctionSymbol { functionSymbol ->
+            SymbolLightIdentifier(this@SymbolLightMethod, functionSymbol)
+        }
     }
 
     override fun getNameIdentifier(): PsiIdentifier = _identifier
 
     override fun getParameterList(): PsiParameterList = _parametersList
 
-    override val kotlinOrigin: KtDeclaration? =
-        lightMemberOrigin?.originalElement ?: functionSymbol.psi as? KtDeclaration
+    override val kotlinOrigin: KtDeclaration? = functionDeclaration ?: lightMemberOrigin?.originalElement
 
-    override fun isValid(): Boolean = super.isValid() && functionSymbol.isValid()
+    override fun isValid(): Boolean = super.isValid() && functionDeclaration?.isValid ?: analyzeForLightClasses(ktModule) {
+        functionSymbolPointer.restoreSymbol() != null
+    }
 
-    override fun isOverride(): Boolean = functionSymbol.getDirectlyOverriddenSymbols().isNotEmpty()
+    override fun isOverride(): Boolean = withFunctionSymbol { it.getDirectlyOverriddenSymbols().isNotEmpty() }
 }
