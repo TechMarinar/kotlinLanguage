@@ -95,5 +95,24 @@ internal abstract class SymbolLightMethod(
         functionSymbolPointer.restoreSymbol() != null
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is SymbolLightMethod) return false
+        if (functionDeclaration != null) {
+            return functionDeclaration == other.functionDeclaration
+        }
+
+        return other.functionDeclaration == null &&
+                methodIndex == other.methodIndex &&
+                ktModule == other.ktModule &&
+                name == other.name &&
+                containingClass == other.containingClass &&
+                analyzeForLightClasses(ktModule) {
+                    functionSymbolPointer.restoreSymbol() == other.functionSymbolPointer.restoreSymbol()
+                }
+    }
+
+    override fun hashCode(): Int = kotlinOrigin.hashCode()
+
     override fun isOverride(): Boolean = withFunctionSymbol { it.getDirectlyOverriddenSymbols().isNotEmpty() }
 }

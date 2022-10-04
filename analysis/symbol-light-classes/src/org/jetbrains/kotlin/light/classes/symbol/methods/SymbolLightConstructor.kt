@@ -6,9 +6,9 @@
 package org.jetbrains.kotlin.light.classes.symbol.methods
 
 import com.intellij.psi.*
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
-import org.jetbrains.kotlin.analysis.api.lifetime.isValid
 import org.jetbrains.kotlin.analysis.api.symbols.KtConstructorSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithVisibility
+import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.light.classes.symbol.NullabilityType
@@ -20,9 +20,8 @@ import org.jetbrains.kotlin.light.classes.symbol.modifierLists.SymbolLightMember
 import org.jetbrains.kotlin.light.classes.symbol.toPsiVisibilityForMember
 import java.util.*
 
-context(KtAnalysisSession)
 internal class SymbolLightConstructor(
-    private val constructorSymbol: KtConstructorSymbol,
+    constructorSymbol: KtConstructorSymbol,
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: SymbolLightClassBase,
     methodIndex: Int,
@@ -34,10 +33,7 @@ internal class SymbolLightConstructor(
     methodIndex = methodIndex,
     argumentsSkipMask = argumentsSkipMask
 ) {
-
-    private val _name: String? = containingClass.name
-
-    override fun getName(): String = _name ?: ""
+    override fun getName(): String = containingClass.name ?: ""
 
     override fun isConstructor(): Boolean = true
 
@@ -46,15 +42,19 @@ internal class SymbolLightConstructor(
     override fun getTypeParameters(): Array<PsiTypeParameter> = PsiTypeParameter.EMPTY_ARRAY
 
     private val _annotations: List<PsiAnnotation> by lazyPub {
-        constructorSymbol.computeAnnotations(
-            parent = this,
-            nullability = NullabilityType.Unknown,
-            annotationUseSiteTarget = null,
-        )
+        withFunctionSymbol { constructorSymbol ->
+            constructorSymbol.computeAnnotations(
+                parent = this@SymbolLightConstructor,
+                nullability = NullabilityType.Unknown,
+                annotationUseSiteTarget = null,
+            )
+        }
     }
 
     private val _isDeprecated: Boolean by lazyPub {
-        constructorSymbol.hasDeprecatedAnnotation()
+        withFunctionSymbol { constructorSymbol ->
+            constructorSymbol.hasDeprecatedAnnotation()
+        }
     }
 
     override fun isDeprecated(): Boolean = _isDeprecated
@@ -64,10 +64,14 @@ internal class SymbolLightConstructor(
         // On the other hand, FE 1.0 doesn't add anything; then ULC adds default ctor w/ package local visibility.
         // Technically, an enum entry should not be instantiated anywhere else, and thus FIR's modeling makes sense.
         // But, to be backward compatible, we manually force the visibility of enum entry ctor to be package private.
-        if (containingClass is SymbolLightClassForEnumEntry)
+        if (containingClass is SymbolLightClassForEnumEntry) {
             setOf(PsiModifier.PACKAGE_LOCAL)
-        else
-            setOf(constructorSymbol.toPsiVisibilityForMember())
+        } else {
+            withFunctionSymbol { constructorSymbol ->
+                requireIsInstance<KtSymbolWithVisibility>(constructorSymbol)
+                setOf(constructorSymbol.toPsiVisibilityForMember())
+            }
+        }
     }
 
     private val _modifierList: PsiModifierList by lazyPub {
@@ -77,14 +81,4 @@ internal class SymbolLightConstructor(
     override fun getModifierList(): PsiModifierList = _modifierList
 
     override fun getReturnType(): PsiType? = null
-
-    override fun equals(other: Any?): Boolean =
-        this === other ||
-                (other is SymbolLightConstructor &&
-                        kotlinOrigin == other.kotlinOrigin &&
-                        constructorSymbol == other.constructorSymbol)
-
-    override fun hashCode(): Int = kotlinOrigin.hashCode()
-
-    override fun isValid(): Boolean = super.isValid() && constructorSymbol.isValid()
 }

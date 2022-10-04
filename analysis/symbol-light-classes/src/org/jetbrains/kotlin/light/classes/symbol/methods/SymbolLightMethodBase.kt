@@ -35,7 +35,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 internal abstract class SymbolLightMethodBase(
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: KtLightClass,
-    private val methodIndex: Int
+    protected val methodIndex: Int
 ) : SymbolLightMemberBase<PsiMethod>(lightMemberOrigin, containingClass), KtLightMethod {
 
     override fun getBody(): PsiCodeBlock? = null
