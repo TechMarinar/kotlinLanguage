@@ -72,15 +72,16 @@ private fun lightClassForEnumEntry(ktEnumEntry: KtEnumEntry): KtLightClass? {
 }
 
 context(KtAnalysisSession)
-internal fun SymbolLightClassBase.createConstructors(
+internal fun SymbolLightClassForClassOrObject.createConstructors(
     declarations: Sequence<KtConstructorSymbol>,
-    result: MutableList<KtLightMethod>
+    result: MutableList<KtLightMethod>,
 ) {
     val constructors = declarations.toList()
     if (constructors.isEmpty()) {
         result.add(defaultConstructor())
         return
     }
+
     for (constructor in constructors) {
         if (constructor.isHiddenOrSynthetic()) continue
         result.add(
@@ -125,33 +126,32 @@ private fun SymbolLightClassBase.shouldGenerateNoArgOverload(
 }
 
 context(KtAnalysisSession)
-private fun SymbolLightClassBase.defaultConstructor(): KtLightMethod {
+private fun SymbolLightClassForClassOrObject.defaultConstructor(): KtLightMethod {
     val classOrObject = kotlinOrigin
     val visibility = when {
         classOrObject is KtObjectDeclaration || isEnum -> PsiModifier.PRIVATE
-        classOrObject?.hasModifier(SEALED_KEYWORD) == true -> PsiModifier.PROTECTED
+        classOrObject.hasModifier(SEALED_KEYWORD) -> PsiModifier.PROTECTED
         classOrObject is KtEnumEntry -> PsiModifier.PACKAGE_LOCAL
         else -> PsiModifier.PUBLIC
     }
+
     return noArgConstructor(visibility, METHOD_INDEX_FOR_DEFAULT_CTOR)
 }
 
 context(KtAnalysisSession)
-private fun SymbolLightClassBase.noArgConstructor(
+private fun SymbolLightClassForClassOrObject.noArgConstructor(
     visibility: String,
     methodIndex: Int,
-): KtLightMethod {
-    return SymbolLightNoArgConstructor(
-        LightMemberOriginForDeclaration(
-            originalElement = kotlinOrigin!!,
-            originKind = JvmDeclarationOriginKind.OTHER,
-            auxiliaryOriginalElement = kotlinOrigin as? KtDeclaration
-        ),
-        this,
-        visibility,
-        methodIndex
-    )
-}
+): KtLightMethod = SymbolLightNoArgConstructor(
+    LightMemberOriginForDeclaration(
+        originalElement = kotlinOrigin,
+        originKind = JvmDeclarationOriginKind.OTHER,
+        auxiliaryOriginalElement = kotlinOrigin as? KtDeclaration
+    ),
+    this,
+    visibility,
+    methodIndex,
+)
 
 context(KtAnalysisSession)
 internal fun SymbolLightClassBase.createMethods(
