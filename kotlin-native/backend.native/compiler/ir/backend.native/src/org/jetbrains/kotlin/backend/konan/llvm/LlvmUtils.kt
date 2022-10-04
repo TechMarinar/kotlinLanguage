@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.konan.llvm
 import kotlinx.cinterop.*
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.Context
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.descriptors.konan.CompiledKlibModuleOrigin
 
 internal val LLVMValueRef.type: LLVMTypeRef
@@ -171,8 +172,8 @@ internal fun ContextUtils.addGlobal(name: String, type: LLVMTypeRef, isExported:
     return LLVMAddGlobal(llvm.module, type, name)!!
 }
 
-internal fun ContextUtils.importGlobal(name: String, type: LLVMTypeRef, origin: CompiledKlibModuleOrigin): LLVMValueRef {
-    llvm.imports.add(origin)
+internal fun ContextUtils.importGlobal(name: String, type: LLVMTypeRef, origin: CompiledKlibModuleOrigin, fileOrigin: CompiledKlibFileOrigin): LLVMValueRef {
+    llvm.imports.add(origin, fileOrigin)
 
     val found = LLVMGetNamedGlobal(llvm.module, name)
     return if (found != null) {

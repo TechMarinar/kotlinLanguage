@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.konan
 import kotlinx.cinterop.toCValues
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.llvm.*
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 
 private fun LLVMValueRef.isFunctionCall() = LLVMIsACallInst(this) != null || LLVMIsAInvokeInst(this) != null
 
@@ -40,21 +41,24 @@ private class CallsChecker(context: Context, goodFunctions: List<String>) {
             "class_getMethodImplementation",
             LlvmRetType(pointerType(functionType(llvm.voidType, false))),
             listOf(LlvmParamType(llvm.int8PtrType), LlvmParamType(llvm.int8PtrType)),
-            origin = context.stdlibModule.llvmSymbolOrigin)
+            origin = context.standardLlvmSymbolsOrigin,
+            fileOrigin = CompiledKlibFileOrigin.StdlibRuntime)
     )
 
     val getClass = llvm.externalFunction(LlvmFunctionProto(
             "object_getClass",
             LlvmRetType(llvm.int8PtrType),
             listOf(LlvmParamType(llvm.int8PtrType)),
-            origin = context.stdlibModule.llvmSymbolOrigin)
+            origin = context.standardLlvmSymbolsOrigin,
+            fileOrigin = CompiledKlibFileOrigin.StdlibRuntime)
     )
 
     val getSuperClass = llvm.externalFunction(LlvmFunctionProto(
             "class_getSuperclass",
             LlvmRetType(llvm.int8PtrType),
             listOf(LlvmParamType(llvm.int8PtrType)),
-            origin = context.stdlibModule.llvmSymbolOrigin)
+            origin = context.standardLlvmSymbolsOrigin,
+            fileOrigin = CompiledKlibFileOrigin.StdlibRuntime)
     )
 
     val checkerFunction = moduleFunction("Kotlin_mm_checkStateAtExternalFunctionCall")

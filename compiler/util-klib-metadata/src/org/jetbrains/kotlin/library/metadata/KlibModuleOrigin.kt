@@ -35,3 +35,15 @@ val ModuleDescriptor.klibModuleOrigin get() = this.getCapability(KlibModuleOrigi
 val ModuleDescriptor.kotlinLibrary get() =
     (this.klibModuleOrigin as DeserializedKlibModuleOrigin)
         .library
+
+sealed class CompiledKlibFileOrigin {
+    object CurrentFile : CompiledKlibFileOrigin()
+
+    object EntireModule : CompiledKlibFileOrigin()
+
+    object StdlibRuntime : CompiledKlibFileOrigin()
+
+    object StdlibKFunctionImpl : CompiledKlibFileOrigin()
+
+    class CertainFile(val fqName: String, val filePath: String) : CompiledKlibFileOrigin()
+}

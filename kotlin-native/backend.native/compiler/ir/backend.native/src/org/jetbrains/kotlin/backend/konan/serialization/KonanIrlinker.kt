@@ -23,14 +23,16 @@ import org.jetbrains.kotlin.backend.common.serialization.*
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinaryNameAndType
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinarySymbolData
 import org.jetbrains.kotlin.backend.common.serialization.encodings.FunctionFlags
+import org.jetbrains.kotlin.backend.common.serialization.isForwardDeclarationModule
 import org.jetbrains.kotlin.backend.common.serialization.linkerissues.UserVisibleIrModulesSupport
 import org.jetbrains.kotlin.backend.konan.*
+import org.jetbrains.kotlin.backend.konan.descriptors.*
 import org.jetbrains.kotlin.backend.konan.descriptors.ClassLayoutBuilder
 import org.jetbrains.kotlin.backend.konan.descriptors.findPackage
-import org.jetbrains.kotlin.backend.konan.descriptors.isInteropLibrary
 import org.jetbrains.kotlin.backend.konan.descriptors.toFieldInfo
 import org.jetbrains.kotlin.backend.konan.ir.interop.IrProviderForCEnumAndCStructStubs
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.descriptors.konan.DeserializedKlibModuleOrigin
 import org.jetbrains.kotlin.descriptors.konan.isNativeStdlib
 import org.jetbrains.kotlin.descriptors.konan.klibModuleOrigin
@@ -400,12 +402,19 @@ internal class KonanIrLinker(
         is IrExternalPackageFragment -> {
             val moduleDescriptor = packageFragment.packageFragmentDescriptor.containingDeclaration
             val moduleDeserializer = moduleDeserializers[moduleDescriptor] ?: error("No module deserializer for $moduleDescriptor")
-            val descriptor = declaration.descriptor
-            val idSig = moduleDeserializer.descriptorSignatures[descriptor] ?: error("No signature for $descriptor")
-            idSig.topLevelSignature().fileSignature()?.fileName ?: error("No file for $idSig")
+            moduleDeserializer.getFileNameOf(declaration)
         }
 
         else -> error("Unknown package fragment kind ${packageFragment::class.java}")
+    }
+
+    fun getFileOrigin(declaration: IrDeclaration): CompiledKlibFileOrigin {
+        val packageFragment = declaration.getPackageFragment()
+        return when {
+            packageFragment.isFunctionInterfaceFile -> CompiledKlibFileOrigin.StdlibKFunctionImpl
+            packageFragment.packageFragmentDescriptor.containingDeclaration.isFromInteropLibrary() -> CompiledKlibFileOrigin.EntireModule
+            else -> CompiledKlibFileOrigin.CertainFile(packageFragment.fqName.asString(), getExternalDeclarationFileName(declaration))
+        }
     }
 
     private val IrClass.firstNonClassParent: IrDeclarationParent
@@ -442,6 +451,31 @@ internal class KonanIrLinker(
             }, klib.versions.abiVersion ?: KotlinAbiVersion.CURRENT, containsErrorCode
     ) {
         override val moduleFragment: IrModuleFragment = KonanIrModuleFragmentImpl(moduleDescriptor, builtIns)
+
+        val files by lazy { fileDeserializationStates.map { it.file } }
+
+        val idSignatureToFile by lazy {
+            buildMap {
+                fileDeserializationStates.forEach { fileDeserializationState ->
+                    fileDeserializationState.fileDeserializer.reversedSignatureIndex.keys.forEach { idSig ->
+                        put(idSig, fileDeserializationState.file)
+                    }
+                }
+            }
+        }
+
+        fun getFileNameOf(declaration: IrDeclaration): String {
+            fun IrDeclaration.getSignature() = symbol.signature ?: descriptorSignatures[descriptor]
+
+            val idSig = declaration.getSignature()
+                    ?: (declaration.parent as? IrDeclaration)?.getSignature()
+                    ?: ((declaration as? IrAttributeContainer)?.attributeOwnerId as? IrDeclaration)?.getSignature()
+                    ?: error("Can't find signature of ${declaration.render()}")
+            val topLevelIdSig = idSig.topLevelSignature()
+            return topLevelIdSig.fileSignature()?.fileName
+                    ?: idSignatureToFile[topLevelIdSig]?.path
+                    ?: error("No file for $idSig")
+        }
 
         fun buildInlineFunctionReference(irFunction: IrFunction): SerializedInlineFunctionReference {
             val signature = irFunction.symbol.signature

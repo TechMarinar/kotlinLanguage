@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.backend.konan.descriptors.isConstantConstructorIntri
 import org.jetbrains.kotlin.backend.konan.descriptors.isTypedIntrinsic
 import org.jetbrains.kotlin.backend.konan.llvm.objc.genObjCSelector
 import org.jetbrains.kotlin.backend.konan.reportCompilationError
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFunction
@@ -439,19 +440,22 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         val functionParameterTypes = listOf(LlvmParamType(llvm.int8PtrType), LlvmParamType(llvm.int8PtrType))
 
         val libobjc = context.standardLlvmSymbolsOrigin
+        val fileRuntime = CompiledKlibFileOrigin.StdlibRuntime
         val normalMessenger = codegen.llvm.externalFunction(LlvmFunctionProto(
                 "objc_msgSend$messengerNameSuffix",
                 functionReturnType,
                 functionParameterTypes,
                 isVararg = true,
-                origin = libobjc
+                origin = libobjc,
+                fileOrigin = fileRuntime
         ))
         val superMessenger = codegen.llvm.externalFunction(LlvmFunctionProto(
                 "objc_msgSendSuper$messengerNameSuffix",
                 functionReturnType,
                 functionParameterTypes,
                 isVararg = true,
-                origin = libobjc
+                origin = libobjc,
+                fileOrigin = fileRuntime
         ))
 
         val superClass = args.single()

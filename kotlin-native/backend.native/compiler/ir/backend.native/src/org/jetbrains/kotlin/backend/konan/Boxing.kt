@@ -101,6 +101,7 @@ internal val Context.getBoxFunction: (IrClass) -> IrSimpleFunction by Context.la
                 it.parent = function
             })
         function.parent = parent
+        function.attributeOwnerId = inlinedClass // To be able to get the file.
     }
 }
 
@@ -160,6 +161,7 @@ internal val Context.getUnboxFunction: (IrClass) -> IrSimpleFunction by Context.
                 it.parent = function
             })
         function.parent = parent
+        function.attributeOwnerId = inlinedClass // To be able to get the file.
     }
 }
 

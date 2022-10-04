@@ -11,6 +11,7 @@ import llvm.LLVMValueRef
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.descriptors.getAnnotationStringValue
 import org.jetbrains.kotlin.backend.konan.ir.*
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.util.*
@@ -28,11 +29,11 @@ internal class KotlinObjCClassInfoGenerator(override val context: Context) : Con
         val classMethods = companionObject?.generateMethodDescs().orEmpty()
 
         val superclassName = irClass.getSuperClassNotAny()!!.let {
-            llvm.imports.add(it.llvmSymbolOrigin)
+            llvm.imports.add(it.llvmSymbolOrigin, context.irLinker.getFileOrigin(it))
             it.descriptor.getExternalObjCClassBinaryName()
         }
         val protocolNames = irClass.getSuperInterfaces().map {
-            llvm.imports.add(it.llvmSymbolOrigin)
+            llvm.imports.add(it.llvmSymbolOrigin, context.irLinker.getFileOrigin(it))
             it.name.asString().removeSuffix("Protocol")
         }
 
@@ -161,7 +162,8 @@ internal fun CodeGenerator.kotlinObjCClassInfo(irClass: IrClass): LLVMValueRef {
         importGlobal(
                 irClass.kotlinObjCClassInfoSymbolName,
                 runtime.kotlinObjCClassInfo,
-                origin = irClass.llvmSymbolOrigin
+                origin = irClass.llvmSymbolOrigin,
+                fileOrigin = context.irLinker.getFileOrigin(irClass)
         )
     } else {
         llvmDeclarations.forClass(irClass).objCDeclarations!!.classInfoGlobal.llvmGlobal

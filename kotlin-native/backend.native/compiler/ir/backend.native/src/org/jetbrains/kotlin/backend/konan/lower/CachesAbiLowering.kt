@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.backend.konan.ir.KonanSymbols
 import org.jetbrains.kotlin.backend.konan.ir.llvmSymbolOrigin
 import org.jetbrains.kotlin.backend.konan.isObjCClass
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
@@ -56,6 +57,7 @@ internal class CachesAbiSupport(mapping: NativeMapping, symbols: KonanSymbols, p
                 returnType = irClass.defaultType
             }.apply {
                 parent = irClass.getPackageFragment()
+                attributeOwnerId = irClass // To be able to get the file.
             }
         }
     }
@@ -69,6 +71,7 @@ internal class CachesAbiSupport(mapping: NativeMapping, symbols: KonanSymbols, p
                 returnType = irClass.parentAsClass.defaultType
             }.apply {
                 parent = irClass.getPackageFragment()
+                attributeOwnerId = irClass // To be able to get the file.
 
                 addValueParameter {
                     name = Name.identifier("innerClass")
@@ -91,6 +94,7 @@ internal class CachesAbiSupport(mapping: NativeMapping, symbols: KonanSymbols, p
                 returnType = actualField.type
             }.apply {
                 parent = irProperty.getPackageFragment()
+                attributeOwnerId = irProperty // To be able to get the file.
 
                 (owner as? IrClass)?.let {
                     addValueParameter {
@@ -112,6 +116,7 @@ internal class CachesAbiSupport(mapping: NativeMapping, symbols: KonanSymbols, p
                 origin = INTERNAL_ABI_ORIGIN
             }.apply {
                 parent = irClass.getPackageFragment()
+                attributeOwnerId = irClass // To be able to get the file.
             }
         }
     }
@@ -218,7 +223,7 @@ internal class ImportCachesAbiTransformer(val context: Context) : FileLoweringPa
             return expression
         }
         val accessor = cachesAbiSupport.getCompanionObjectAccessor(irClass)
-        llvmImports.add(irClass.llvmSymbolOrigin)
+        llvmImports.add(irClass.llvmSymbolOrigin, context.irLinker.getFileOrigin(irClass))
         return irCall(expression.startOffset, expression.endOffset, accessor, emptyList())
     }
 
@@ -234,7 +239,7 @@ internal class ImportCachesAbiTransformer(val context: Context) : FileLoweringPa
 
             irClass?.isInner == true && context.innerClassesSupport.getOuterThisField(irClass) == field -> {
                 val accessor = cachesAbiSupport.getOuterThisAccessor(irClass)
-                llvmImports.add(irClass.llvmSymbolOrigin)
+                llvmImports.add(irClass.llvmSymbolOrigin, context.irLinker.getFileOrigin(irClass))
                 return irCall(expression.startOffset, expression.endOffset, accessor, emptyList()).apply {
                     putValueArgument(0, expression.receiver)
                 }
@@ -242,7 +247,7 @@ internal class ImportCachesAbiTransformer(val context: Context) : FileLoweringPa
 
             property?.isLateinit == true -> {
                 val accessor = cachesAbiSupport.getLateinitPropertyAccessor(property)
-                llvmImports.add(property.llvmSymbolOrigin)
+                llvmImports.add(property.llvmSymbolOrigin, context.irLinker.getFileOrigin(property))
                 return irCall(expression.startOffset, expression.endOffset, accessor, emptyList()).apply {
                     if (irClass != null)
                         putValueArgument(0, expression.receiver)
@@ -256,7 +261,7 @@ internal class ImportCachesAbiTransformer(val context: Context) : FileLoweringPa
                 require(enumsSupport.getImplObject(enumClass) == irClass) { "Expected a enum's impl object: ${irClass.render()}" }
                 require(field == enumsSupport.getValuesField(irClass)) { "Expected VALUES field: ${field.render()}" }
                 val accessor = cachesAbiSupport.getEnumValuesAccessor(enumClass)
-                llvmImports.add(enumClass.llvmSymbolOrigin)
+                llvmImports.add(enumClass.llvmSymbolOrigin, context.irLinker.getFileOrigin(enumClass))
                 return irCall(expression.startOffset, expression.endOffset, accessor, emptyList())
             }
 

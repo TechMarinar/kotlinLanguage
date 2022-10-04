@@ -8,19 +8,19 @@ package org.jetbrains.kotlin.backend.konan.llvm
 import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.toKString
 import llvm.*
+import org.jetbrains.kotlin.backend.common.atMostOne
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.library.resolver.TopologicalLibraryOrder
 import org.jetbrains.kotlin.backend.konan.ir.llvmSymbolOrigin
-import org.jetbrains.kotlin.descriptors.konan.CompiledKlibModuleOrigin
-import org.jetbrains.kotlin.descriptors.konan.CurrentKlibModuleOrigin
-import org.jetbrains.kotlin.descriptors.konan.DeserializedKlibModuleOrigin
+import org.jetbrains.kotlin.descriptors.konan.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.konan.library.KonanLibrary
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.uniqueName
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -215,7 +215,8 @@ internal interface ContextUtils : RuntimeAware {
                 }
 
                 constPointer(importGlobal(typeInfoSymbolName, runtime.typeInfoType,
-                        origin = this.llvmSymbolOrigin))
+                        origin = this.llvmSymbolOrigin,
+                        fileOrigin = context.irLinker.getFileOrigin(this)))
             } else {
                 context.generationState.llvmDeclarations.forClass(this).typeInfo
             }
@@ -341,7 +342,7 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
     }
 
     internal fun externalFunction(llvmFunctionProto: LlvmFunctionProto): LlvmCallable {
-        this.imports.add(llvmFunctionProto.origin, onlyBitcode = llvmFunctionProto.independent)
+        this.imports.add(llvmFunctionProto.origin, llvmFunctionProto.fileOrigin, onlyBitcode = llvmFunctionProto.independent)
         val found = LLVMGetNamedFunction(module, llvmFunctionProto.name)
         if (found != null) {
             assert(getFunctionType(found) == llvmFunctionProto.llvmFunctionType) {
@@ -364,11 +365,30 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
         private val usedBitcode = mutableSetOf<KotlinLibrary>()
         private val usedNativeDependencies = mutableSetOf<KotlinLibrary>()
 
+        private val usedBitcodeOfFile = mutableSetOf<LlvmImports.LibraryFile>()
+
         private val allLibraries by lazy { context.librariesWithDependencies.toSet() }
 
-        override fun add(origin: CompiledKlibModuleOrigin, onlyBitcode: Boolean) {
+        private fun findStdlibFile(fqName: FqName, fileName: String): LlvmImports.LibraryFile {
+            val stdlib = (context.standardLlvmSymbolsOrigin as? DeserializedKlibModuleOrigin)?.library
+                    ?: context.config.libraryToCache?.klib
+                    ?: error("Can't find stdlib library")
+            val stdlibModuleFiles = if (context.moduleDescriptor.isNativeStdlib())
+                context.irModule!!.files
+            else
+                (context.irLinker.moduleDeserializers[context.stdlibModule] ?: error("No deserializer for stdlib"))
+                        .files
+            val file = stdlibModuleFiles.atMostOne { it.fqName == fqName && it.name == fileName }
+                    ?: error("Can't find $fileName")
+            return LlvmImports.LibraryFile(stdlib, file.fqName.asString(), file.path)
+        }
+
+        private val stdlibRuntime by lazy { findStdlibFile(KonanFqNames.internalPackageName, "Runtime.kt") }
+        private val stdlibKFunctionImpl by lazy { findStdlibFile(KonanFqNames.internalPackageName, "KFunctionImpl.kt") }
+
+        override fun add(origin: CompiledKlibModuleOrigin, fileOrigin: CompiledKlibFileOrigin, onlyBitcode: Boolean) {
             val library = when (origin) {
-                CurrentKlibModuleOrigin -> return
+                CurrentKlibModuleOrigin -> context.config.libraryToCache?.klib?.takeIf { context.config.producePerFileCache } ?: return
                 is DeserializedKlibModuleOrigin -> origin.library
             }
 
@@ -376,15 +396,27 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
                 error("Library (${library.libraryName}) is used but not requested.\nRequested libraries: ${allLibraries.joinToString { it.libraryName }}")
             }
 
+            val libraryFile = when (fileOrigin) {
+                CompiledKlibFileOrigin.CurrentFile -> return
+                CompiledKlibFileOrigin.EntireModule -> null
+                is CompiledKlibFileOrigin.CertainFile -> LlvmImports.LibraryFile(library, fileOrigin.fqName, fileOrigin.filePath)
+                CompiledKlibFileOrigin.StdlibRuntime -> stdlibRuntime
+                CompiledKlibFileOrigin.StdlibKFunctionImpl -> stdlibKFunctionImpl
+            }
+
             usedBitcode.add(library)
             if (!onlyBitcode) {
                 usedNativeDependencies.add(library)
             }
+
+            libraryFile?.let { usedBitcodeOfFile.add(it) }
         }
 
         override fun bitcodeIsUsed(library: KonanLibrary) = library in usedBitcode
 
         override fun nativeDependenciesAreUsed(library: KonanLibrary) = library in usedNativeDependencies
+
+        override fun usedBitcode(): List<LlvmImports.LibraryFile> = usedBitcodeOfFile.toList()
     }
 
     val nativeDependenciesToLink: List<KonanLibrary> by lazy {
@@ -401,47 +433,102 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
                 .filter { (!it.isDefault && !context.config.purgeUserLibs) || imports.bitcodeIsUsed(it) }
     }
 
-    val allCachedBitcodeDependencies: List<KonanLibrary> by lazy {
-        val allLibraries = context.config.resolvedLibraries.getFullList().associateBy { it.uniqueName }
-        val result = mutableSetOf<KonanLibrary>()
+    sealed class CachedBitcodeDependency(val library: KonanLibrary) {
+        class WholeModule(library: KonanLibrary) : CachedBitcodeDependency(library)
 
-        fun addDependencies(cachedLibrary: CachedLibraries.Cache) {
-            cachedLibrary.bitcodeDependencies.forEach {
-                val library = allLibraries[it] ?: error("Bitcode dependency to an unknown library: $it")
-                result.add(library as KonanLibrary)
-                addDependencies(context.config.cachedLibraries.getLibraryCache(library)
-                        ?: error("Library $it is expected to be cached"))
+        class CertainFiles(library: KonanLibrary, val files: List<String>) : CachedBitcodeDependency(library)
+    }
+
+    private inner class CachedBitcodeDependenciesComputer {
+        private val allLibraries = context.config.resolvedLibraries.getFullList().associateBy { it.uniqueName }
+        private val usedBitcode = imports.usedBitcode().groupBy { it.library }
+
+        private val moduleDependencies = mutableSetOf<KonanLibrary>()
+        private val fileDependencies = mutableMapOf<KonanLibrary, MutableSet<String>>()
+
+        val allDependencies: List<CachedBitcodeDependency>
+
+        init {
+            for (library in immediateBitcodeDependencies) {
+                if (library == context.config.libraryToCache?.klib) continue
+                val filesUsed = usedBitcode[library]?.map { CacheSupport.cacheFileId(it.fqName, it.filePath) }
+
+                val cache = context.config.cachedLibraries.getLibraryCache(library)
+                if (cache != null) {
+                    if (filesUsed == null) {
+                        moduleDependencies.add(library)
+                        addAllDependencies(cache)
+                    } else {
+                        fileDependencies.getOrPut(library) { mutableSetOf() }.addAll(filesUsed)
+                        addDependencies(cache, filesUsed)
+                    }
+                }
             }
+
+            allDependencies = moduleDependencies.map { CachedBitcodeDependency.WholeModule(it) } +
+                    fileDependencies.filterNot { it.key in moduleDependencies }
+                            .map { (library, files) -> CachedBitcodeDependency.CertainFiles(library, files.toList()) }
         }
 
-        for (library in immediateBitcodeDependencies) {
-            if (library == context.config.libraryToCache?.klib) continue
-            val cache = context.config.cachedLibraries.getLibraryCache(library)
-            if (cache != null) {
-                result += library
-                addDependencies(cache)
-            }
+        private fun addAllDependencies(cachedLibrary: CachedLibraries.Cache) {
+            cachedLibrary.bitcodeDependencies.forEach { addDependency(it) }
         }
 
-        result.toList()
+        private fun addDependencies(cachedLibrary: CachedLibraries.Cache, files: List<String>) = when (cachedLibrary) {
+            is CachedLibraries.Cache.Monolithic -> addAllDependencies(cachedLibrary)
+
+            is CachedLibraries.Cache.PerFile ->
+                files.forEach { file ->
+                    cachedLibrary.getFileDependencies(file).forEach { addDependency(it) }
+                }
+        }
+
+        private fun addDependency(dependency: CachedLibraries.BitcodeDependency) {
+            val dependencyLib = (allLibraries[dependency.libName]
+                    ?: error("Bitcode dependency to an unknown library: ${dependency.libName}")) as KonanLibrary
+            if (dependencyLib in moduleDependencies) return
+            val cachedDependency = context.config.cachedLibraries.getLibraryCache(dependencyLib)
+                    ?: error("Library ${dependency.libName} is expected to be cached")
+
+            when (dependency) {
+                is CachedLibraries.BitcodeDependency.WholeModule -> {
+                    moduleDependencies.add(dependencyLib)
+                    addAllDependencies(cachedDependency)
+                }
+                is CachedLibraries.BitcodeDependency.CertainFiles -> {
+                    val handledFiles = fileDependencies.getOrPut(dependencyLib) { mutableSetOf() }
+                    val notHandledFiles = dependency.files.toMutableSet()
+                    notHandledFiles.removeAll(handledFiles)
+                    handledFiles.addAll(notHandledFiles)
+                    if (notHandledFiles.isNotEmpty())
+                        addDependencies(cachedDependency, notHandledFiles.toList())
+                }
+            }
+        }
+    }
+
+    val allCachedBitcodeDependencies: List<CachedBitcodeDependency> by lazy {
+        CachedBitcodeDependenciesComputer().allDependencies
     }
 
     val allNativeDependencies: List<KonanLibrary> by lazy {
-        (nativeDependenciesToLink + allCachedBitcodeDependencies).distinct()
+        (nativeDependenciesToLink + allCachedBitcodeDependencies.map { it.library } /* Native dependencies are per library */).distinct()
     }
 
-    val allBitcodeDependencies: List<KonanLibrary> by lazy {
-        val allNonCachedDependencies = context.librariesWithDependencies.filter {
-            context.config.cachedLibraries.getLibraryCache(it) == null || it == context.config.libraryToCache?.klib
+    val allBitcodeDependencies: List<CachedBitcodeDependency> by lazy {
+        val allBitcodeDependencies = mutableMapOf<KonanLibrary, CachedBitcodeDependency>()
+        for (library in context.librariesWithDependencies) {
+            if (context.config.cachedLibraries.getLibraryCache(library) == null || library == context.config.libraryToCache?.klib)
+                allBitcodeDependencies[library] = CachedBitcodeDependency.WholeModule(library)
         }
-        val set = (allNonCachedDependencies + allCachedBitcodeDependencies).toSet()
+        for (dependency in allCachedBitcodeDependencies)
+            allBitcodeDependencies[dependency.library] = dependency
         // This list is used in particular to build the libraries' initializers chain.
         // The initializers must be called in the topological order, so make sure that the
         // libraries list being returned is also toposorted.
         context.config.resolvedLibraries
                 .getFullList(TopologicalLibraryOrder)
-                .map { it as KonanLibrary }
-                .filter { it in set }
+                .mapNotNull { allBitcodeDependencies[it as KonanLibrary] }
     }
 
     val bitcodeToLink: List<KonanLibrary> by lazy {
@@ -668,7 +755,8 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
             "_ZSt9terminatev", // mangled C++ 'std::terminate'
             returnType = LlvmRetType(voidType),
             functionAttributes = listOf(LlvmFunctionAttribute.NoUnwind),
-            origin = context.standardLlvmSymbolsOrigin
+            origin = context.standardLlvmSymbolsOrigin,
+            fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
     ))
 
     val gxxPersonalityFunction = externalFunction(LlvmFunctionProto(
@@ -676,7 +764,8 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
             returnType = LlvmRetType(int32Type),
             functionAttributes = listOf(LlvmFunctionAttribute.NoUnwind),
             isVararg = true,
-            origin = context.standardLlvmSymbolsOrigin
+            origin = context.standardLlvmSymbolsOrigin,
+            fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
     ))
 
     val cxaBeginCatchFunction = externalFunction(LlvmFunctionProto(
@@ -684,14 +773,16 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
             returnType = LlvmRetType(int8PtrType),
             functionAttributes = listOf(LlvmFunctionAttribute.NoUnwind),
             parameterTypes = listOf(LlvmParamType(int8PtrType)),
-            origin = context.standardLlvmSymbolsOrigin
+            origin = context.standardLlvmSymbolsOrigin,
+            fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
     ))
 
     val cxaEndCatchFunction = externalFunction(LlvmFunctionProto(
             "__cxa_end_catch",
             returnType = LlvmRetType(voidType),
             functionAttributes = listOf(LlvmFunctionAttribute.NoUnwind),
-            origin = context.standardLlvmSymbolsOrigin
+            origin = context.standardLlvmSymbolsOrigin,
+            fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
     ))
 
     private fun getSizeOfReturnTypeInBits(functionPointer: LLVMValueRef): Long {

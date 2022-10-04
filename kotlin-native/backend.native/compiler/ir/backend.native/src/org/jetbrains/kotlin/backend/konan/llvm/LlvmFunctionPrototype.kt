@@ -12,6 +12,7 @@ import llvm.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.RuntimeNames
 import org.jetbrains.kotlin.backend.konan.ir.llvmSymbolOrigin
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.descriptors.konan.CompiledKlibModuleOrigin
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
@@ -157,6 +158,7 @@ internal class LlvmFunctionProto(
         parameterTypes: List<LlvmParamType> = emptyList(),
         functionAttributes: List<LlvmFunctionAttribute> = emptyList(),
         val origin: CompiledKlibModuleOrigin,
+        val fileOrigin: CompiledKlibFileOrigin,
         isVararg: Boolean = false,
         val independent: Boolean = false,
 ) : LlvmFunctionSignature(returnType, parameterTypes, isVararg, functionAttributes) {
@@ -164,8 +166,9 @@ internal class LlvmFunctionProto(
             name: String,
             signature: LlvmFunctionSignature,
             origin: CompiledKlibModuleOrigin,
+            fileOrigin: CompiledKlibFileOrigin,
             independent: Boolean = false,
-    ) : this(name, signature.returnType, signature.parameterTypes, signature.functionAttributes, origin, signature.isVararg, independent)
+    ) : this(name, signature.returnType, signature.parameterTypes, signature.functionAttributes, origin, fileOrigin, signature.isVararg, independent)
 
     constructor(irFunction: IrFunction, symbolName: String, contextUtils: ContextUtils) : this(
             name = symbolName,
@@ -173,6 +176,7 @@ internal class LlvmFunctionProto(
             parameterTypes = contextUtils.getLlvmFunctionParameterTypes(irFunction),
             functionAttributes = inferFunctionAttributes(contextUtils, irFunction),
             origin = irFunction.llvmSymbolOrigin,
+            fileOrigin = contextUtils.context.irLinker.getFileOrigin(irFunction),
             independent = irFunction.hasAnnotation(RuntimeNames.independent)
     )
 }

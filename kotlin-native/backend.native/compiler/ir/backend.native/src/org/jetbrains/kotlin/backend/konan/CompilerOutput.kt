@@ -56,7 +56,7 @@ internal val Context.shouldDefineCachedBoxes: Boolean
 
 internal val Context.shouldLinkRuntimeNativeLibraries: Boolean
     get() = producedLlvmModuleContainsStdlib &&
-            config.libraryToCache?.strategy?.contains(KonanFqNames.packageName, "Runtime.kt") != false
+            config.libraryToCache?.strategy?.contains(KonanFqNames.internalPackageName, "Runtime.kt") != false
 
 val KonanConfig.involvesLinkStage: Boolean
     get() = when (this.produce) {

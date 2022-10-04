@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.konan.llvm.objc
 
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.llvm.*
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.descriptors.konan.CurrentKlibModuleOrigin
 
 /**
@@ -76,7 +77,7 @@ internal class ObjCDataGenerator(val codegen: CodeGenerator) {
 
         // TODO: refactor usages and use [Global] class.
         val llvmGlobal = LLVMGetNamedGlobal(llvm.module, globalName) ?:
-                codegen.importGlobal(globalName, classObjectType, CurrentKlibModuleOrigin)
+                codegen.importGlobal(globalName, classObjectType, CurrentKlibModuleOrigin, CompiledKlibFileOrigin.CurrentFile)
 
         return constPointer(llvmGlobal)
     }
@@ -85,7 +86,8 @@ internal class ObjCDataGenerator(val codegen: CodeGenerator) {
             codegen.importGlobal(
                     "_objc_empty_cache",
                     codegen.runtime.objCCache,
-                    CurrentKlibModuleOrigin
+                    CurrentKlibModuleOrigin,
+                    CompiledKlibFileOrigin.CurrentFile
             )
     )
 

@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.backend.konan.ir.*
 import org.jetbrains.kotlin.backend.konan.llvm.ThreadState.Native
 import org.jetbrains.kotlin.backend.konan.llvm.ThreadState.Runnable
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.descriptors.konan.CompiledKlibModuleOrigin
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.konan.ForeignExceptionMode
@@ -1308,7 +1309,8 @@ internal abstract class FunctionGenerationContext(
                     importGlobal(
                             irClass.globalObjectStorageSymbolName,
                             llvmType,
-                            origin = irClass.llvmSymbolOrigin
+                            origin = irClass.llvmSymbolOrigin,
+                            fileOrigin = context.irLinker.getFileOrigin(irClass)
                     )
                 }
             }
@@ -1385,20 +1387,22 @@ internal abstract class FunctionGenerationContext(
 
         return if (irClass.isExternalObjCClass()) {
             val llvmSymbolOrigin = irClass.llvmSymbolOrigin
+            val fileOrigin = context.irLinker.getFileOrigin(irClass)
 
             if (irClass.isObjCMetaClass()) {
                 val name = irClass.descriptor.getExternalObjCMetaClassBinaryName()
-                val objCClass = getObjCClass(name, llvmSymbolOrigin)
+                val objCClass = getObjCClass(name, llvmSymbolOrigin, fileOrigin)
 
                 val getClass = llvm.externalFunction(LlvmFunctionProto(
                         "object_getClass",
                         LlvmRetType(llvm.int8PtrType),
                         listOf(LlvmParamType(llvm.int8PtrType)),
-                        origin = context.standardLlvmSymbolsOrigin
+                        origin = context.standardLlvmSymbolsOrigin,
+                        fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
                 ))
                 call(getClass, listOf(objCClass), exceptionHandler = exceptionHandler)
             } else {
-                getObjCClass(irClass.descriptor.getExternalObjCClassBinaryName(), llvmSymbolOrigin)
+                getObjCClass(irClass.descriptor.getExternalObjCClassBinaryName(), llvmSymbolOrigin, fileOrigin)
             }
         } else {
             if (irClass.isObjCMetaClass()) {
@@ -1422,8 +1426,8 @@ internal abstract class FunctionGenerationContext(
         }
     }
 
-    fun getObjCClass(binaryName: String, llvmSymbolOrigin: CompiledKlibModuleOrigin): LLVMValueRef {
-        llvm.imports.add(llvmSymbolOrigin)
+    fun getObjCClass(binaryName: String, llvmSymbolOrigin: CompiledKlibModuleOrigin, fileOrigin: CompiledKlibFileOrigin): LLVMValueRef {
+        llvm.imports.add(llvmSymbolOrigin, fileOrigin)
         return load(codegen.objCDataGenerator!!.genClassRef(binaryName).llvm)
     }
 
@@ -1589,14 +1593,16 @@ internal abstract class FunctionGenerationContext(
         get() = constPointer(importGlobal(
                 "_ZTI18ExceptionObjHolder", // typeinfo for ObjHolder
                 llvm.int8PtrType,
-                origin = context.stdlibModule.llvmSymbolOrigin
+                origin = context.standardLlvmSymbolsOrigin,
+                fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
         )).bitcast(llvm.int8PtrType)
 
     private val objcNSExceptionRtti: ConstPointer by lazy {
         constPointer(importGlobal(
                 "OBJC_EHTYPE_\$_NSException", // typeinfo for NSException*
                 llvm.int8PtrType,
-                origin = context.stdlibModule.llvmSymbolOrigin
+                origin = context.standardLlvmSymbolsOrigin,
+                fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
         )).bitcast(llvm.int8PtrType)
     }
 

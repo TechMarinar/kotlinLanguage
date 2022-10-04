@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.konan.llvm.objcexport
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.backend.konan.objcexport.BlockPointerBridge
+import org.jetbrains.kotlin.descriptors.konan.CompiledKlibFileOrigin
 import org.jetbrains.kotlin.descriptors.konan.CurrentKlibModuleOrigin
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.util.simpleFunctions
@@ -315,7 +316,8 @@ internal class BlockGenerator(private val codegen: CodeGenerator) {
             val isa = codegen.importGlobal(
                     "_NSConcreteStackBlock",
                     llvm.int8PtrType,
-                    CurrentKlibModuleOrigin
+                    CurrentKlibModuleOrigin,
+                    fileOrigin = CompiledKlibFileOrigin.CurrentFile
             )
 
             val flags = llvm.int32((1 shl 25) or (1 shl 30) or (1 shl 31))
@@ -352,7 +354,8 @@ private val ObjCExportCodeGeneratorBase.retainBlock: LlvmCallable
                 "objc_retainBlock",
                 LlvmRetType(llvm.int8PtrType),
                 listOf(LlvmParamType(llvm.int8PtrType)),
-                origin = CurrentKlibModuleOrigin
+                origin = context.standardLlvmSymbolsOrigin,
+                fileOrigin = CompiledKlibFileOrigin.StdlibRuntime
         )
         return llvm.externalFunction(functionProto)
     }
