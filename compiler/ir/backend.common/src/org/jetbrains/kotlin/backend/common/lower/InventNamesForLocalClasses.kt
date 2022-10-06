@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.backend.common.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.ir.wasExplicitlyInlined
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
@@ -15,7 +17,7 @@ import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
 import org.jetbrains.kotlin.ir.expressions.IrPropertyReference
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.util.isAnonymousObject
-import org.jetbrains.kotlin.ir.util.statements
+import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.NameUtils
@@ -54,15 +56,10 @@ abstract class InventNamesForLocalClasses(
                 val marker = expression.statements.first() as IrInlineMarker
                 val inlinedAt = marker.inlineCall.symbol.owner.name.asString()
 
-                val statementsCountFromCallee = marker.callee.body!!.statements.size
-                expression.statements.take(expression.statements.size - statementsCountFromCallee).forEach {
-                    it.accept(this, data)
-                }
+                expression.getAdditionalStatementsFromInlinedBlock().forEach { it.accept(this, data) }
                 processingInlinedFunction = true
                 val newData = data.copy(enclosingName = data.enclosingName + "$\$inlined\$$inlinedAt", isLocal = true)
-                expression.statements.takeLast(statementsCountFromCallee).forEach {
-                    it.accept(this, newData)
-                }
+                expression.getOriginalStatementsFromInlinedBlock().forEach { it.accept(this, newData) }
                 processingInlinedFunction = false
                 return
             }
@@ -202,8 +199,14 @@ abstract class InventNamesForLocalClasses(
         }
 
         override fun visitField(declaration: IrField, data: Data) {
-            // Skip field name because the name of the property is already there.
-            declaration.acceptChildren(this, data.makeLocal())
+            val parentExplicitlyContainsProperty = declaration.correspondingPropertySymbol != null &&
+                    declaration.parentAsClass.declarations.contains(declaration.correspondingPropertySymbol!!.owner)
+            if (!this.processingInlinedFunction && parentExplicitlyContainsProperty) {
+                // Skip field name because the name of the property is already there.
+                declaration.acceptChildren(this, data.makeLocal())
+            } else {
+                declaration.acceptChildren(this, data.copy(enclosingName = data.enclosingName + "\$special", isLocal = true))
+            }
         }
 
         override fun visitAnonymousInitializer(declaration: IrAnonymousInitializer, data: Data) {

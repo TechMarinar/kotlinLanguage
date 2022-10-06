@@ -19,10 +19,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrReturnableBlockImpl
 import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrReturnableBlockSymbolImpl
 import org.jetbrains.kotlin.ir.types.getClass
-import org.jetbrains.kotlin.ir.util.explicitParameters
-import org.jetbrains.kotlin.ir.util.functions
-import org.jetbrains.kotlin.ir.util.isVararg
-import org.jetbrains.kotlin.ir.util.statements
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 sealed class IrInlinable
@@ -128,8 +125,38 @@ fun IrInlinable.inline(target: IrDeclarationParent, arguments: List<IrValueDecla
         }
     }
 
+fun IrExpression.isLoweredInlinedFunction(): Boolean {
+    if (this !is IrBlock) return false
+    return this.statements.firstOrNull() is IrInlineMarker
+}
+
+private fun IrExpression.checkForLoweredInlinedFunctionOrThrowException() {
+    if (this.isLoweredInlinedFunction()) return
+    throw IllegalArgumentException("The following expression is not a lowered inline function: \n${this.render()}")
+}
+
 fun IrExpression.wasExplicitlyInlined(): Boolean {
     if (this !is IrBlock) return false
     val marker = this.statements.firstOrNull() as? IrInlineMarker ?: return false
-    return !marker.isInlineOnLambda
+    return marker.originalExpression == null
+}
+
+fun IrExpression.getAdditionalStatementsFromInlinedBlock(): List<IrStatement> {
+    this.checkForLoweredInlinedFunctionOrThrowException()
+    return ((this as IrBlock).statements[1] as IrComposite).statements
+}
+
+fun IrExpression.getOriginalStatementsFromInlinedBlock(): List<IrStatement> {
+    this.checkForLoweredInlinedFunctionOrThrowException()
+    return (this as IrBlock).statements.drop(2)
+}
+
+fun IrExpression.putStatementsBeforeActualInline(statements: List<IrStatement>) {
+    this.checkForLoweredInlinedFunctionOrThrowException()
+    ((this as IrBlock).statements[1] as IrComposite).statements.addAll(statements)
+}
+
+fun IrExpression.putStatementsInFrontOfInlinedFunction(statements: List<IrStatement>) {
+    this.checkForLoweredInlinedFunctionOrThrowException()
+    (this as IrBlock).statements.addAll(2, statements)
 }

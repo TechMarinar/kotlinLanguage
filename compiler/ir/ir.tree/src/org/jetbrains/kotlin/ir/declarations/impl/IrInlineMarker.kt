@@ -5,14 +5,17 @@
 
 package org.jetbrains.kotlin.ir.declarations.impl
 
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrInlineMarker
 import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrFunctionExpression
 
 class IrInlineMarkerImpl(
     override val startOffset: Int,
     override val endOffset: Int,
     override val inlineCall: IrCall,
     override val callee: IrFunction,
-    override val isInlineOnLambda: Boolean,
+    override val originalExpression: IrFunctionExpression?,
+    override val inlinedAt: IrDeclaration,
 ) : IrInlineMarker()

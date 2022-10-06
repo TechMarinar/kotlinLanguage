@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrSymbolOwner
-import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrDoWhileLoopImpl
@@ -76,38 +75,11 @@ class ReturnableBlockLowering(val context: CommonBackendContext) : BodyLoweringP
 class ReturnableBlockTransformer(val context: CommonBackendContext, val containerSymbol: IrSymbol? = null) : IrElementTransformerVoidWithContext() {
     private var labelCnt = 0
     private val returnMap = mutableMapOf<IrReturnableBlockSymbol, (IrReturn) -> IrExpression>()
-    private val visitedVariables = mutableListOf<Pair<IrVariable, Boolean>>()
 
     override fun visitReturn(expression: IrReturn): IrExpression {
         expression.transformChildrenVoid()
         return returnMap[expression.returnTargetSymbol]?.invoke(expression) ?: expression
     }
-
-//    override fun visitVariable(declaration: IrVariable): IrStatement {
-//        val initializer = declaration.initializer
-//        if (initializer !is IrReturnableBlock) {
-//            return super.visitVariable(declaration)
-//        }
-//
-//        declaration.initializer = null
-//        val newInit = initializer.accept(this, null) as IrExpression
-//        val setVar = IrSetValueImpl(declaration.startOffset, declaration.endOffset, declaration.type, declaration.symbol, newInit, null)
-//
-//        return IrCompositeImpl(declaration.startOffset, declaration.endOffset, declaration.type, null, listOf(declaration, setVar))
-//    }
-
-//    override fun visitVariable(declaration: IrVariable): IrStatement {
-//        visitedVariables += declaration to false
-//        val result = super.visitVariable(declaration)
-//        val hasReturnableBlockInInit = visitedVariables.removeLast().second
-//        if (!hasReturnableBlockInInit) return result
-//
-//        val initializer = declaration.initializer ?: return result
-//        declaration.initializer = null
-//        val setVar = IrSetValueImpl(declaration.startOffset, declaration.endOffset, declaration.type, declaration.symbol, initializer, null)
-//
-//        return IrCompositeImpl(declaration.startOffset, declaration.endOffset, declaration.type, null, listOf(declaration, setVar))
-//    }
 
     override fun visitContainerExpression(expression: IrContainerExpression): IrExpression {
         if (expression !is IrReturnableBlock) return super.visitContainerExpression(expression)
@@ -152,11 +124,6 @@ class ReturnableBlockTransformer(val context: CommonBackendContext, val containe
         }
 
         returnMap.remove(expression.symbol)
-
-        visitedVariables.lastOrNull()?.first?.let {
-            visitedVariables.dropLast(1)
-            visitedVariables += it to true
-        }
 
         if (!hasReturned) {
             return IrBlockImpl(

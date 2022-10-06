@@ -11,6 +11,7 @@ package org.jetbrains.kotlin.ir.declarations
 import org.jetbrains.kotlin.ir.IrElementBase
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrFunctionExpression
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 
@@ -23,7 +24,9 @@ abstract class IrInlineMarker : IrElementBase(), IrStatement {
 
     abstract val callee: IrFunction
 
-    abstract val isInlineOnLambda: Boolean
+    abstract val originalExpression: IrFunctionExpression?
+
+    abstract val inlinedAt: IrDeclaration
 
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R =
         visitor.visitInlineMarker(this, data)

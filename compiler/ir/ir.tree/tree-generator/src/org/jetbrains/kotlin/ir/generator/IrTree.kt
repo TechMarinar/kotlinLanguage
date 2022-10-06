@@ -1065,6 +1065,7 @@ object IrTree : AbstractTreeBuilder() {
 
         +field("inlineCall", call)
         +field("callee", function)
-        +field("isInlineOnLambda", boolean)
+        +field("originalExpression", functionExpression, nullable = true)
+        +field("inlinedAt", declaration)
     }
 }

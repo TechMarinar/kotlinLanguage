@@ -408,7 +408,10 @@ open class DeepCopyIrTreeWithSymbols(
         IrSyntheticBodyImpl(body.startOffset, body.endOffset, body.kind)
 
     override fun visitInlineMarker(declaration: IrInlineMarker, data: Nothing?): IrElement {
-        return IrInlineMarkerImpl(declaration.startOffset, declaration.endOffset, declaration.inlineCall, declaration.callee, declaration.isInlineOnLambda)
+        return IrInlineMarkerImpl(
+            declaration.startOffset, declaration.endOffset,
+            declaration.inlineCall, declaration.callee, declaration.originalExpression, declaration.inlinedAt
+        )
     }
 
     override fun visitExpression(expression: IrExpression): IrExpression =

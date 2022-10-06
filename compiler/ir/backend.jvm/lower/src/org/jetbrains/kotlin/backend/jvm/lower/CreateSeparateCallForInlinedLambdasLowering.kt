@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.putStatementsBeforeActualInline
 import org.jetbrains.kotlin.backend.common.ir.wasExplicitlyInlined
 import org.jetbrains.kotlin.backend.common.phaser.makeIrModulePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
@@ -19,7 +21,6 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.util.getArgumentsWithIr
-import org.jetbrains.kotlin.ir.util.statements
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 
 internal val createSeparateCallForInlinedLambdas = makeIrModulePhase(
@@ -43,11 +44,8 @@ class CreateSeparateCallForInlinedLambdasLowering(val context: JvmBackendContext
             }
 
             // we don't need to transform body of original function, just arguments that were extracted as variables
-            expression.statements
-                .take(expression.statements.size - marker.callee.body!!.statements.size)
-                .forEach { it.transformChildrenVoid() }
-            // TODO chane index to 0 after removing IrInlineMarker
-            expression.statements.addAll(1, newCalls) // put new calls right after marker
+            expression.getAdditionalStatementsFromInlinedBlock().forEach { it.transformChildrenVoid() }
+            expression.putStatementsBeforeActualInline(newCalls) // put new calls right after marker
             return expression
         }
 
