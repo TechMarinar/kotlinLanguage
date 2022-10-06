@@ -1,5 +1,8 @@
+import org.jetbrains.kotlin.gradle.plugin.cocoapods.withPodspec
+
 plugins {
     kotlin("multiplatform")
+    kotlin("native.cocoapods") // TODO separate project for tests
 }
 
 kotlin {
@@ -48,5 +51,17 @@ kotlinArtifacts {
             project(":shared"),
             project(":lib")
         )
+
+        withPodspec {
+            attribute("version", "666.66")
+            attribute("license", "LGPL'ish")
+            attribute("some_map", "{ 'well' => 'you know', 'some_map_key' => false, 'another one?' => { 'yeeah' => 'sure!' } }")
+            attribute("some_list", "[ 'coolbean1', 'coolbean2', 'coolbean3' ]")
+            attribute("ios.deployment_target", "10.0")
+
+            rawStatement("""
+            |    spec.dependency 'SSZipArchive'
+            """.trimMargin())
+        }
     }
 }
