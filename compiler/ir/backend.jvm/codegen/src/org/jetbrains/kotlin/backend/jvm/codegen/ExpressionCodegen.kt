@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.backend.jvm.codegen
 
+import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.lower.BOUND_RECEIVER_PARAMETER
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
 import org.jetbrains.kotlin.backend.jvm.*
@@ -35,7 +37,6 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedKotlinType
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
@@ -170,7 +171,7 @@ class ExpressionCodegen(
 
     val state = context.state
 
-    private val fileEntry = (classCodegen.irClass.getOriginalDeclaration() ?: irFunction).fileParent.fileEntry
+    private val fileEntry = (/*classCodegen.irClass.getOriginalDeclaration() ?:*/ irFunction).fileParent.fileEntry
 
     override val visitor: InstructionAdapter
         get() = mv
@@ -182,6 +183,7 @@ class ExpressionCodegen(
 
     override var lastLineNumber: Int = -1
     var noLineNumberScope: Boolean = false
+    var useSmapForLineNumbers: Boolean = false
 
     private var isInsideCondition = false
 
@@ -209,16 +211,29 @@ class ExpressionCodegen(
 
     private fun IrElement.markLineNumber(startOffset: Boolean) {
         if (noLineNumberScope) return
-        val offset = if (startOffset) this.startOffset else endOffset
+        var offset = if (startOffset) this.startOffset else endOffset
         if (offset < 0) return
 
-        val lineNumber = if (getLocalSmap().isNotEmpty()) {
-            val doUntil = if (getLocalSmap().size >= 2 && !getLocalSmap()[0].isInvokeOnLambda() && getLocalSmap()[1].isInvokeOnLambda()) 1 else 0
+        if (this is IrAttributeContainer && this.attributeOwnerIdBeforeInline != null) {
+            useSmapForLineNumbers = true
+            offset = if (startOffset) this.attributeOwnerIdBeforeInline!!.startOffset else this.attributeOwnerIdBeforeInline!!.endOffset
+        }
+
+        val lineNumber = if (getLocalSmap().isNotEmpty() /*&& useSmapForLineNumbers*/) {
+//            val doUntil = if (getLocalSmap().size >= 2 && !getLocalSmap()[0].isInvokeOnLambda() && getLocalSmap()[1].isInvokeOnLambda()) 1 else 0
+//            var result = -1
+//            for (i in (getLocalSmap().size - 1) downTo doUntil) {
+//                val inlineData = getLocalSmap()[i]
+//                val localFileEntry = inlineData.inlineMarker.callee.fileEntry
+//                result = inlineData.smap.mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
+//            }
+//            result
             var result = -1
-            for (i in (getLocalSmap().size - 1) downTo doUntil) {
-                val inlineData = getLocalSmap()[i]
-                val localFileEntry = inlineData.inlineMarker.callee.fileEntry
-                result = inlineData.smap.mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
+            for (inlineData in getLocalSmap().reversed()) {
+                val marker = inlineData.inlineMarker
+                val localFileEntry = marker.callee.fileEntry//(if (marker.originalExpression != null) marker.inlinedAt else marker.callee).fileEntry
+                val lineNumber = localFileEntry.getLineNumber(offset) + 1
+                result = inlineData.smap.mapLineNumber(lineNumber)
             }
             result
         } else {
@@ -479,31 +494,61 @@ class ExpressionCodegen(
         }
     }
 
-    private fun visitStatementContainer(container: IrStatementContainer, data: BlockInfo): PromisedValue {
-        val before = getLocalSmap().size
-        val result = container.statements.fold(unitValue) { prev, exp ->
+    private fun visitInlinedFunctionBlock(block: IrBlock, data: BlockInfo): PromisedValue {
+        val marker = block.statements.first() as IrInlineMarker
+        marker.inlineCall.markLineNumber(true)
+        visitInlineMarker(marker, data)
+        block.getAdditionalStatementsFromInlinedBlock().forEach { exp ->
+            exp.accept(this, data).discard()
+        }
+
+//        val old = useSmapForLineNumbers
+//        useSmapForLineNumbers = true
+
+        val result = block.getOriginalStatementsFromInlinedBlock().fold(unitValue) { prev, exp ->
             prev.discard()
             exp.accept(this, data)
         }
 
-        if (getLocalSmap().size != before) {
-            val inlineData = getLocalSmap().last()
-            val calleeBody = inlineData.inlineMarker.callee.body
-            if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
-                // Allow setting a breakpoint on the closing brace of a void-returning function without an explicit return
-                val element = inlineData.inlineMarker.callee
-                element.markLineNumber(startOffset = false)
-                mv.nop()
-            }
+//        useSmapForLineNumbers = old
 
-            context.localSmapCopiersByClass.removeLast()
-            if (inlineData.isInvokeOnLambda()) {
-                // TODO the rest
-                inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
+//        val result = block.statements.fold(unitValue) { prev, exp ->
+//            useSmapForLineNumbers = false
+//            prev.discard()
+//            exp.accept(this, data)
+//        }
+
+        val inlineData = getLocalSmap().last()
+        val callee = inlineData.inlineMarker.callee
+        val calleeBody = callee.body
+        // TODO reuse code
+        if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
+            // Allow setting a breakpoint on the closing brace of a void-returning function
+            // without an explicit return, or the `class Something(` line of a primary constructor.
+            if (callee.origin != JvmLoweredDeclarationOrigin.CLASS_STATIC_INITIALIZER) {
+                callee.markLineNumber(startOffset = callee is IrConstructor && callee.isPrimary)
                 mv.nop()
             }
         }
+
+        context.localSmapCopiersByClass.removeLast()
+//            if (inlineData.isInvokeOnLambda()) {
+//                // TODO the rest
+//                inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
+//                mv.nop()
+//            }
+
         return result
+    }
+
+    private fun visitStatementContainer(container: IrStatementContainer, data: BlockInfo): PromisedValue {
+        if (container is IrBlock && container.statements.firstOrNull() is IrInlineMarker) {
+            return visitInlinedFunctionBlock(container, data)
+        }
+        return container.statements.fold(unitValue) { prev, exp ->
+            prev.discard()
+            exp.accept(this, data)
+        }
     }
 
     override fun visitBlockBody(body: IrBlockBody, data: BlockInfo): PromisedValue {
@@ -962,47 +1007,49 @@ class ExpressionCodegen(
     override fun visitInlineMarker(declaration: IrInlineMarker, data: BlockInfo): PromisedValue {
         val inlineCall = declaration.inlineCall
 
-        inlineCall.markLineNumber(true)
-        mv.nop()
-
-        if (inlineCall.symbol.owner.name == OperatorNameConventions.INVOKE) {
-            val callSite = if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
+//        inlineCall.markLineNumber(true)
+//        mv.nop()
+//
+        if (declaration.originalExpression != null) {
+            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
             val classSourceMapper = context.getSourceMapper(declaration.callee.parentClassOrNull!!)
             val classSMAP = SMAP(classSourceMapper.resultMappings)//.generateMethodNode(element.callee!!)
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(smap, classSMAP, callSite), declaration)
             )
         } else {
-            val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
-                .filterIsInstance<IrSimpleFunction>()
-                .filter { it.attributeOwnerId == (declaration.callee as IrSimpleFunction).attributeOwnerId }
-//                .filter { if (!inlineCall.hasDefaultArgs()) true else it.name.asString().endsWith("\$default") }
-                .first().let { actualCallee ->
-                    val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
-                    val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
-                    val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
-                    (callGenerator as InlineCodegen<*>).compileInline()
-                }
-
+//            val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
+//                .filterIsInstance<IrSimpleFunction>()
+//                .filter { it.attributeOwnerId == (declaration.callee as IrSimpleFunction).attributeOwnerId }
+////                .filter { if (!inlineCall.hasDefaultArgs()) true else it.name.asString().endsWith("\$default") }
+//                .first().let { actualCallee ->
+//                    val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
+//                    val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
+//                    val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
+//                    (callGenerator as InlineCodegen<*>).compileInline()
+//                }
+//
             val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
             val file = fileEntry.name.drop(1)
-            val type = context.getLocalClassType(irFunction.parentClassOrNull!!)
-            val path = type?.className?.replace('.', '/')
-                ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
-                ?: ""
+//            val type = context.getLocalClassType(irFunction.parentClassOrNull!!)
+//            val path = type?.className?.replace('.', '/')
+//                ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
+//                ?: ""
+            val smapOfParentClassForGivenInlineFucntion = SMAP(context.getSourceMapper(declaration.callee.parentAsClass).resultMappings)
+            val sourceMapCopier = SourceMapCopier(smap, smapOfParentClassForGivenInlineFucntion, SourcePosition(line, file, smap.sourceInfo!!.pathOrCleanFQN))
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(smap, nodeAndSmap.classSMAP, SourcePosition(line, file, path)), declaration)
+                JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration)
             )
         }
-
-        if (inlineCall.hasDefaultArgs()) {
-            declaration.callee.markLineNumber(true) // this line number is useless but it is needed to make proper smap
-            val defaultArgs = declaration.callee.getAnalogWithDefaultParameters().getAllDefaultValueParameters()
-            inlineCall.markDefaultArgsWithCorrespondingLineNumber(defaultArgs)
-
-            declaration.callee.markLineNumber(true)
-            mv.nop()
-        }
+//
+//        if (inlineCall.hasDefaultArgs()) {
+//            declaration.callee.markLineNumber(true) // this line number is useless but it is needed to make proper smap
+//            val defaultArgs = declaration.callee.getAnalogWithDefaultParameters().getAllDefaultValueParameters()
+//            inlineCall.markDefaultArgsWithCorrespondingLineNumber(defaultArgs)
+//
+//            declaration.callee.markLineNumber(true)
+//            mv.nop()
+//        }
 
         return unitValue
     }

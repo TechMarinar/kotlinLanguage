@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.ir.putStatementsInFrontOfInlinedFunction
 import org.jetbrains.kotlin.backend.common.ir.wasExplicitlyInlined
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
@@ -21,6 +22,9 @@ import org.jetbrains.kotlin.ir.builders.irInt
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBlock
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
 
@@ -31,6 +35,7 @@ internal val fakeInliningLocalVariablesAfterInlineLowering = makeIrFilePhase(
         |This lowering adds fake locals into already inlined blocks.""".trimMargin()
 )
 
+// TODO extract common code with FakeInliningLocalVariablesLowering
 internal class FakeInliningLocalVariablesAfterInlineLowering(val context: JvmBackendContext) : IrElementVisitor<Unit, IrDeclaration?>, FileLoweringPass {
     private val inlinedFunctionStack = mutableListOf<IrFunction>()
 
@@ -120,6 +125,22 @@ internal class FakeInliningLocalVariablesAfterInlineLowering(val context: JvmBac
                 it.name = Name.identifier(it.name.asString().substringAfterLast("_") + INLINE_FUN_VAR_SUFFIX)
                 it.origin = IrDeclarationOrigin.DEFINED
             }
+        }
+
+        this.getOriginalStatementsFromInlinedBlock().forEach {
+            it.acceptVoid(object : IrElementVisitorVoid {
+                override fun visitElement(element: IrElement) {
+                    element.acceptChildrenVoid(this)
+                }
+
+                override fun visitVariable(declaration: IrVariable) {
+                    val varName = declaration.name.asString()
+                    if (!varName.startsWith(JvmAbi.LOCAL_VARIABLE_NAME_PREFIX_INLINE_FUNCTION) && !varName.startsWith(JvmAbi.LOCAL_VARIABLE_NAME_PREFIX_INLINE_ARGUMENT)) {
+                        declaration.name = Name.identifier(varName + INLINE_FUN_VAR_SUFFIX)
+                    }
+                    super.visitVariable(declaration)
+                }
+            })
         }
     }
 }

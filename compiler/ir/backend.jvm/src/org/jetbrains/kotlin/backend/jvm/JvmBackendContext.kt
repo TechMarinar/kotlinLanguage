@@ -35,7 +35,6 @@ import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
-import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.org.objectweb.asm.Type
 import java.util.concurrent.ConcurrentHashMap
 
@@ -94,7 +93,7 @@ class JvmBackendContext(
     val localSmapCopiersByClass = mutableListOf<AdditionalIrInlineData>()
 
     data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker) {
-        fun isInvokeOnLambda() = inlineMarker.inlineCall.symbol.owner.name == OperatorNameConventions.INVOKE
+        fun isInvokeOnLambda(): Boolean = inlineMarker.originalExpression != null
     }
 
     private val localClassType = ConcurrentHashMap<IrAttributeContainer, Type>()
