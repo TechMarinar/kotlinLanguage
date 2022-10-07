@@ -98,7 +98,7 @@ internal class FakeInliningLocalVariablesAfterInlineLowering(val context: JvmBac
         super.visitBlock(expression, data)
 
         val marker = expression.statements.first() as IrInlineMarker
-        val callee = inlinedFunctionStack.last()
+        val callee = marker.inlinedAt as IrFunction
         val argument = marker.originalExpression!!
 
         //            val lambda = argument.function.symbol.owner
