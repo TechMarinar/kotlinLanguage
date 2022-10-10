@@ -375,6 +375,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xlazy-ir-for-caches", valueDescription = "{disable|enable}", description = "Use lazy IR for cached libraries")
     var lazyIrForCaches: String? = null
 
+    @Suppress("unused")
     @Argument(value = "-Xpartial-linkage", description = "Allow unlinked symbols")
     var partialLinkage: Boolean = false
 
