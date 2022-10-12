@@ -37,6 +37,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedKotlinType
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
@@ -229,10 +230,10 @@ class ExpressionCodegen(
 //            }
 //            result
             var result = -1
-            for (inlineData in getLocalSmap().reversed()) {
+            for (inlineData in listOf(getLocalSmap().reversed().first())) {
                 val marker = inlineData.inlineMarker
                 val localFileEntry = marker.callee.fileEntry//(if (marker.originalExpression != null) marker.inlinedAt else marker.callee).fileEntry
-                val lineNumber = localFileEntry.getLineNumber(offset) + 1
+                val lineNumber = if (result == -1) localFileEntry.getLineNumber(offset) + 1 else result
                 result = inlineData.smap.mapLineNumber(lineNumber)
             }
             result
@@ -496,11 +497,12 @@ class ExpressionCodegen(
 
     private fun visitInlinedFunctionBlock(block: IrBlock, data: BlockInfo): PromisedValue {
         val marker = block.statements.first() as IrInlineMarker
-        marker.inlineCall.markLineNumber(true)
-        visitInlineMarker(marker, data)
+//        marker.inlineCall.markLineNumber(true)
         block.getAdditionalStatementsFromInlinedBlock().forEach { exp ->
             exp.accept(this, data).discard()
         }
+        // TODO create smap for defaults
+        visitInlineMarker(marker, data)
 
 //        val old = useSmapForLineNumbers
 //        useSmapForLineNumbers = true
@@ -518,10 +520,9 @@ class ExpressionCodegen(
 //            exp.accept(this, data)
 //        }
 
-        val inlineData = getLocalSmap().last()
-        val callee = inlineData.inlineMarker.callee
+        val callee = marker.callee
         val calleeBody = callee.body
-        // TODO reuse code
+        // TODO start: reuse code
         if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
             // Allow setting a breakpoint on the closing brace of a void-returning function
             // without an explicit return, or the `class Something(` line of a primary constructor.
@@ -530,8 +531,11 @@ class ExpressionCodegen(
                 mv.nop()
             }
         }
+        // TODO end
 
-        context.localSmapCopiersByClass.removeLast()
+//        if (getLocalSmap().isNotEmpty()) {
+            context.localSmapCopiersByClass.removeLast()
+//        }
 //            if (inlineData.isInvokeOnLambda()) {
 //                // TODO the rest
 //                inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
@@ -1007,27 +1011,31 @@ class ExpressionCodegen(
     override fun visitInlineMarker(declaration: IrInlineMarker, data: BlockInfo): PromisedValue {
         val inlineCall = declaration.inlineCall
 
-//        inlineCall.markLineNumber(true)
+        inlineCall.markLineNumber(true)
 //        mv.nop()
 //
+//        if (getLocalSmap().isNotEmpty()) return unitValue
         if (declaration.originalExpression != null) {
-            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
+            TODO("inline lambda smap")
+            /*val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
             val classSourceMapper = context.getSourceMapper(declaration.callee.parentClassOrNull!!)
             val classSMAP = SMAP(classSourceMapper.resultMappings)//.generateMethodNode(element.callee!!)
+            val actualSmap = if (getLocalSmap().isEmpty()) smap else context.getSourceMapper(declaration.inlinedAt.parentAsClass)
+
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(smap, classSMAP, callSite), declaration)
-            )
+                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(actualSmap, classSMAP, callSite), declaration)
+            )*/
         } else {
-//            val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
-//                .filterIsInstance<IrSimpleFunction>()
-//                .filter { it.attributeOwnerId == (declaration.callee as IrSimpleFunction).attributeOwnerId }
-////                .filter { if (!inlineCall.hasDefaultArgs()) true else it.name.asString().endsWith("\$default") }
-//                .first().let { actualCallee ->
-//                    val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
-//                    val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
-//                    val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
-//                    (callGenerator as InlineCodegen<*>).compileInline()
-//                }
+            val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
+                .filterIsInstance<IrSimpleFunction>()
+                .filter { it.attributeOwnerId == (declaration.callee as IrSimpleFunction).attributeOwnerId }
+//                .filter { if (!inlineCall.hasDefaultArgs()) true else it.name.asString().endsWith("\$default") }
+                .first().let { actualCallee ->
+                    val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
+                    val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
+                    val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
+                    (callGenerator as InlineCodegen<*>).compileInline()
+                }
 //
             val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
             val file = fileEntry.name.drop(1)
@@ -1035,8 +1043,9 @@ class ExpressionCodegen(
 //            val path = type?.className?.replace('.', '/')
 //                ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
 //                ?: ""
-            val smapOfParentClassForGivenInlineFucntion = SMAP(context.getSourceMapper(declaration.callee.parentAsClass).resultMappings)
-            val sourceMapCopier = SourceMapCopier(smap, smapOfParentClassForGivenInlineFucntion, SourcePosition(line, file, smap.sourceInfo!!.pathOrCleanFQN))
+            val parentSmap = if (getLocalSmap().isEmpty()) smap else smap//context.getSourceMapper(declaration.inlinedAt.parentAsClass)
+            val sourcePosition = if (getLocalSmap().isEmpty()) SourcePosition(line, file, parentSmap.sourceInfo!!.pathOrCleanFQN) else getLocalSmap().last().smap.callSite
+            val sourceMapCopier = SourceMapCopier(parentSmap, nodeAndSmap.classSMAP, sourcePosition)
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration)
             )

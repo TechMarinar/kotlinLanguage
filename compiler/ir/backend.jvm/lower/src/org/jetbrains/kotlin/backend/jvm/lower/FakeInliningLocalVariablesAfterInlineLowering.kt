@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.SpecialNames
 
 internal val fakeInliningLocalVariablesAfterInlineLowering = makeIrFilePhase(
     ::FakeInliningLocalVariablesAfterInlineLowering,
@@ -122,7 +123,8 @@ internal class FakeInliningLocalVariablesAfterInlineLowering(val context: JvmBac
     private fun IrBlock.processLocalDeclarations() {
         this.getAdditionalStatementsFromInlinedBlock().forEach {
             if (it is IrVariable && it.origin == IrDeclarationOrigin.IR_TEMPORARY_VARIABLE) {
-                it.name = Name.identifier(it.name.asString().substringAfterLast("_") + INLINE_FUN_VAR_SUFFIX)
+                val varName = it.name.asString().substringAfterLast("_")
+                it.name = Name.identifier((if (varName == SpecialNames.THIS.asString()) "this_" else varName) + INLINE_FUN_VAR_SUFFIX)
                 it.origin = IrDeclarationOrigin.DEFINED
             }
         }
@@ -135,8 +137,17 @@ internal class FakeInliningLocalVariablesAfterInlineLowering(val context: JvmBac
 
                 override fun visitVariable(declaration: IrVariable) {
                     val varName = declaration.name.asString()
-                    if (!varName.startsWith(JvmAbi.LOCAL_VARIABLE_NAME_PREFIX_INLINE_FUNCTION) && !varName.startsWith(JvmAbi.LOCAL_VARIABLE_NAME_PREFIX_INLINE_ARGUMENT)) {
-                        declaration.name = Name.identifier(varName + INLINE_FUN_VAR_SUFFIX)
+                    declaration.name = when {
+                        varName == SpecialNames.THIS.asString() -> {
+                            Name.identifier("this_$INLINE_FUN_VAR_SUFFIX")
+                        }
+
+                        !varName.startsWith(JvmAbi.LOCAL_VARIABLE_NAME_PREFIX_INLINE_FUNCTION) &&
+                                !varName.startsWith(JvmAbi.LOCAL_VARIABLE_NAME_PREFIX_INLINE_ARGUMENT) -> {
+                            Name.identifier(varName + INLINE_FUN_VAR_SUFFIX)
+                        }
+
+                        else -> declaration.name
                     }
                     super.visitVariable(declaration)
                 }
