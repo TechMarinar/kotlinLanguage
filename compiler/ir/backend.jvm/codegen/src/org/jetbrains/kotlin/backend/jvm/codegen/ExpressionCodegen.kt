@@ -152,11 +152,15 @@ class ExpressionCodegen(
 //    }
 //
 //    private val localSmapCopiers: MutableList<AdditionalIrInlineData> = mutableListOf()
+    val localSmapCopiersByClass = mutableListOf<JvmBackendContext.AdditionalIrInlineData>()
 
-    private fun getLocalSmap(): List<JvmBackendContext.AdditionalIrInlineData> = context.localSmapCopiersByClass
+    private fun getLocalSmap(): List<JvmBackendContext.AdditionalIrInlineData> = /*context.*/localSmapCopiersByClass
+    private fun dropLastLocalSmap() {
+        /*context.*/localSmapCopiersByClass.removeLast()
+    }
 
     private fun addToLocalSmap(info: JvmBackendContext.AdditionalIrInlineData) {
-        context.localSmapCopiersByClass.add(info)
+        /*context.*/localSmapCopiersByClass.add(info)
     }
 
     override fun toString(): String = signature.toString()
@@ -534,7 +538,7 @@ class ExpressionCodegen(
         // TODO end
 
 //        if (getLocalSmap().isNotEmpty()) {
-            context.localSmapCopiersByClass.removeLast()
+            dropLastLocalSmap()
 //        }
 //            if (inlineData.isInvokeOnLambda()) {
 //                // TODO the rest
@@ -1016,15 +1020,15 @@ class ExpressionCodegen(
 //
 //        if (getLocalSmap().isNotEmpty()) return unitValue
         if (declaration.originalExpression != null) {
-            TODO("inline lambda smap")
-            /*val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
+//            TODO("inline lambda smap")
+            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
             val classSourceMapper = context.getSourceMapper(declaration.callee.parentClassOrNull!!)
             val classSMAP = SMAP(classSourceMapper.resultMappings)//.generateMethodNode(element.callee!!)
-            val actualSmap = if (getLocalSmap().isEmpty()) smap else context.getSourceMapper(declaration.inlinedAt.parentAsClass)
+            val actualSmap = smap//context.getSourceMapper(declaration.inlinedAt.parentAsClass)
 
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(actualSmap, classSMAP, callSite), declaration)
-            )*/
+            )
         } else {
             val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
                 .filterIsInstance<IrSimpleFunction>()
