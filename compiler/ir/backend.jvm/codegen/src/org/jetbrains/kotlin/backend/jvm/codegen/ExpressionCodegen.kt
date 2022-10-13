@@ -1019,9 +1019,15 @@ class ExpressionCodegen(
 //        mv.nop()
 //
 //        if (getLocalSmap().isNotEmpty()) return unitValue
+        val localSmaps = getLocalSmap()
         if (declaration.originalExpression != null) {
 //            TODO("inline lambda smap")
-            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
+            val callSite = if (localSmaps.firstOrNull()?.inlineMarker?.callee != declaration.inlinedAt) {
+                localSmaps.lastOrNull()?.smap?.callSite
+            } else {
+                null
+            }
+//            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
             val classSourceMapper = context.getSourceMapper(declaration.callee.parentClassOrNull!!)
             val classSMAP = SMAP(classSourceMapper.resultMappings)//.generateMethodNode(element.callee!!)
             val actualSmap = smap//context.getSourceMapper(declaration.inlinedAt.parentAsClass)
@@ -1047,8 +1053,12 @@ class ExpressionCodegen(
 //            val path = type?.className?.replace('.', '/')
 //                ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
 //                ?: ""
-            val parentSmap = if (getLocalSmap().isEmpty()) smap else smap//context.getSourceMapper(declaration.inlinedAt.parentAsClass)
-            val sourcePosition = if (getLocalSmap().isEmpty()) SourcePosition(line, file, parentSmap.sourceInfo!!.pathOrCleanFQN) else getLocalSmap().last().smap.callSite
+            val parentSmap = if (localSmaps.isEmpty()) smap else smap//context.getSourceMapper(declaration.inlinedAt.parentAsClass)
+            val sourcePosition = if (localSmaps.isEmpty() || localSmaps.last().isInvokeOnLambda()) {
+                SourcePosition(line, file, parentSmap.sourceInfo!!.pathOrCleanFQN)
+            } else {
+                localSmaps.lastOrNull()?.smap?.callSite
+            }
             val sourceMapCopier = SourceMapCopier(parentSmap, nodeAndSmap.classSMAP, sourcePosition)
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration)
