@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlined
 import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.lower.BOUND_RECEIVER_PARAMETER
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
+import org.jetbrains.kotlin.backend.common.lower.parents
 import org.jetbrains.kotlin.backend.jvm.*
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IntrinsicMethod
 import org.jetbrains.kotlin.backend.jvm.intrinsics.JavaClassProperty
@@ -176,7 +177,7 @@ class ExpressionCodegen(
 
     val state = context.state
 
-    private val fileEntry = (/*classCodegen.irClass.getOriginalDeclaration() ?:*/ irFunction).fileParent.fileEntry
+    private val fileEntry = (classCodegen.irClass.getOriginalDeclaration() ?: irFunction).fileParent.fileEntry
 
     override val visitor: InstructionAdapter
         get() = mv
@@ -188,7 +189,6 @@ class ExpressionCodegen(
 
     override var lastLineNumber: Int = -1
     var noLineNumberScope: Boolean = false
-    var useSmapForLineNumbers: Boolean = false
 
     private var isInsideCondition = false
 
@@ -212,38 +212,23 @@ class ExpressionCodegen(
 
     private fun markNewLinkedLabel() = linkedLabel().apply { mv.visitLabel(this) }
 
-    private fun getLineNumberForOffset(offset: Int): Int = fileEntry.getLineNumber(offset) + 1
+    private fun getLineNumberForOffset(offset: Int): Int {
+        if (getLocalSmap().isNotEmpty()) {
+            val inlineData = getLocalSmap().last()
+            val localFileEntry = inlineData.inlineMarker.callee.fileEntry
+            val lineNumber = localFileEntry.getLineNumber(offset) + 1
+            val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
+            return mappedLineNumber
+        }
+        return fileEntry.getLineNumber(offset) + 1
+    }
 
     private fun IrElement.markLineNumber(startOffset: Boolean) {
         if (noLineNumberScope) return
-        var offset = if (startOffset) this.startOffset else endOffset
+        val offset = if (startOffset) this.startOffset else endOffset
         if (offset < 0) return
 
-        if (this is IrAttributeContainer && this.attributeOwnerIdBeforeInline != null) {
-            useSmapForLineNumbers = true
-            offset = if (startOffset) this.attributeOwnerIdBeforeInline!!.startOffset else this.attributeOwnerIdBeforeInline!!.endOffset
-        }
-
-        val lineNumber = if (getLocalSmap().isNotEmpty() /*&& useSmapForLineNumbers*/) {
-//            val doUntil = if (getLocalSmap().size >= 2 && !getLocalSmap()[0].isInvokeOnLambda() && getLocalSmap()[1].isInvokeOnLambda()) 1 else 0
-//            var result = -1
-//            for (i in (getLocalSmap().size - 1) downTo doUntil) {
-//                val inlineData = getLocalSmap()[i]
-//                val localFileEntry = inlineData.inlineMarker.callee.fileEntry
-//                result = inlineData.smap.mapLineNumber(localFileEntry.getLineNumber(offset) + 1)
-//            }
-//            result
-            var result = -1
-            for (inlineData in listOf(getLocalSmap().reversed().first())) {
-                val marker = inlineData.inlineMarker
-                val localFileEntry = marker.callee.fileEntry//(if (marker.originalExpression != null) marker.inlinedAt else marker.callee).fileEntry
-                val lineNumber = if (result == -1) localFileEntry.getLineNumber(offset) + 1 else result
-                result = inlineData.smap.mapLineNumber(lineNumber)
-            }
-            result
-        } else {
-            getLineNumberForOffset(offset)
-        }
+        val lineNumber = getLineNumberForOffset(offset)
 
         assert(lineNumber > 0)
         if (lastLineNumber != lineNumber) {
@@ -501,7 +486,8 @@ class ExpressionCodegen(
 
     private fun visitInlinedFunctionBlock(block: IrBlock, data: BlockInfo): PromisedValue {
         val marker = block.statements.first() as IrInlineMarker
-//        marker.inlineCall.markLineNumber(true)
+        val lineNumberForOffset = getLineNumberForOffset(marker.inlineCall.startOffset)
+
         block.getAdditionalStatementsFromInlinedBlock().forEach { exp ->
             exp.accept(this, data).discard()
         }
@@ -526,7 +512,7 @@ class ExpressionCodegen(
 
         val callee = marker.callee
         val calleeBody = callee.body
-        // TODO start: reuse code
+        // TODO start_1: reuse code
         if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
             // Allow setting a breakpoint on the closing brace of a void-returning function
             // without an explicit return, or the `class Something(` line of a primary constructor.
@@ -535,11 +521,32 @@ class ExpressionCodegen(
                 mv.nop()
             }
         }
-        // TODO end
+        // TODO end_1
+        dropLastLocalSmap()
 
-//        if (getLocalSmap().isNotEmpty()) {
-            dropLastLocalSmap()
-//        }
+
+        if (marker.originalExpression != null) { // is lambda call
+            val overrideLineNumber = marker.callee.isInlineOnly()
+            val currentLineNumber = if (overrideLineNumber) getLocalSmap().last().smap.callSite!!.line else lineNumberForOffset
+//        currentLineNumber = getLineNumberForOffset(marker.inlineCall.startOffset)
+            // TODO start_2: reuse code
+            if (currentLineNumber != -1) {
+                if (overrideLineNumber) {
+                    // This is from the function we're inlining into, so no need to remap.
+                    mv.visitLineNumber(currentLineNumber, markNewLabel())
+                } else {
+                    // Need to go through the superclass here to properly remap the line number via `sourceMapper`.
+                    if (getLocalSmap().isNotEmpty()) {
+                        mv.visitLineNumber(getLocalSmap().last().smap.mapLineNumber(currentLineNumber), markNewLabel())
+                    } else {
+                        marker.inlineCall.markLineNumber(true)
+                    }
+                }
+                mv.nop()
+            }
+            // TODO end_2
+        }
+
 //            if (inlineData.isInvokeOnLambda()) {
 //                // TODO the rest
 //                inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
