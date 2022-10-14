@@ -1018,10 +1018,8 @@ class ExpressionCodegen(
         inlineCall.markLineNumber(true)
 //        mv.nop()
 //
-//        if (getLocalSmap().isNotEmpty()) return unitValue
         val localSmaps = getLocalSmap()
         if (declaration.originalExpression != null) {
-//            TODO("inline lambda smap")
             val callSite = if (localSmaps.firstOrNull()?.inlineMarker?.callee != declaration.inlinedAt) {
                 localSmaps.lastOrNull()?.smap?.callSite
             } else {
@@ -1029,11 +1027,10 @@ class ExpressionCodegen(
             }
 //            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
             val classSourceMapper = context.getSourceMapper(declaration.callee.parentClassOrNull!!)
-            val classSMAP = SMAP(classSourceMapper.resultMappings)//.generateMethodNode(element.callee!!)
-            val actualSmap = smap//context.getSourceMapper(declaration.inlinedAt.parentAsClass)
+            val classSMAP = SMAP(classSourceMapper.resultMappings)
 
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(actualSmap, classSMAP, callSite), declaration)
+                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(smap, classSMAP, callSite), declaration)
             )
         } else {
             val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
@@ -1046,20 +1043,15 @@ class ExpressionCodegen(
                     val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
                     (callGenerator as InlineCodegen<*>).compileInline()
                 }
-//
-            val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
-            val file = fileEntry.name.drop(1)
-//            val type = context.getLocalClassType(irFunction.parentClassOrNull!!)
-//            val path = type?.className?.replace('.', '/')
-//                ?: irFunction.parentClassOrNull?.fqNameWhenAvailable?.asString()?.replace('.', '/')
-//                ?: ""
-            val parentSmap = if (localSmaps.isEmpty()) smap else smap//context.getSourceMapper(declaration.inlinedAt.parentAsClass)
+
             val sourcePosition = if (localSmaps.isEmpty() || localSmaps.last().isInvokeOnLambda()) {
-                SourcePosition(line, file, parentSmap.sourceInfo!!.pathOrCleanFQN)
+                val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
+                val file = fileEntry.name.drop(1)
+                SourcePosition(line, file, smap.sourceInfo!!.pathOrCleanFQN)
             } else {
-                localSmaps.lastOrNull()?.smap?.callSite
+                localSmaps.last().smap.callSite
             }
-            val sourceMapCopier = SourceMapCopier(parentSmap, nodeAndSmap.classSMAP, sourcePosition)
+            val sourceMapCopier = SourceMapCopier(smap, nodeAndSmap.classSMAP, sourcePosition)
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration)
             )
