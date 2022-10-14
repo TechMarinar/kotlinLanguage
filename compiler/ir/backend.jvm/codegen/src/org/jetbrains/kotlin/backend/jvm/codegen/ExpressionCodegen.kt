@@ -536,11 +536,12 @@ class ExpressionCodegen(
                     mv.visitLineNumber(currentLineNumber, markNewLabel())
                 } else {
                     // Need to go through the superclass here to properly remap the line number via `sourceMapper`.
-                    if (getLocalSmap().isNotEmpty()) {
-                        mv.visitLineNumber(getLocalSmap().last().smap.mapLineNumber(currentLineNumber), markNewLabel())
-                    } else {
+//                    if (getLocalSmap().isNotEmpty()) {
+//                        val mappedLineNumber = getLocalSmap().last().smap.mapLineNumber(currentLineNumber)
+//                        mv.visitLineNumber(mappedLineNumber, markNewLabel())
+//                    } else {
                         marker.inlineCall.markLineNumber(true)
-                    }
+//                    }
                 }
                 mv.nop()
             }
