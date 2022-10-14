@@ -1020,7 +1020,8 @@ class ExpressionCodegen(
 //
         val localSmaps = getLocalSmap()
         if (declaration.originalExpression != null) {
-            val callSite = if (localSmaps.firstOrNull()?.inlineMarker?.callee != declaration.inlinedAt) {
+            val callSite = if (!declaration.callee.parents.contains(irFunction)) {
+                // if this is lambda from argument and not from body of inline function
                 localSmaps.lastOrNull()?.smap?.callSite
             } else {
                 null
@@ -1044,7 +1045,9 @@ class ExpressionCodegen(
                     (callGenerator as InlineCodegen<*>).compileInline()
                 }
 
-            val sourcePosition = if (localSmaps.isEmpty() || localSmaps.last().isInvokeOnLambda()) {
+            val sourcePosition = if (localSmaps.isEmpty() || localSmaps.last().inlineMarker.callee.parents.contains(irFunction)) {
+                // if this is first inline block
+                // or we are inside lambda that come from inline function argument
                 val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
                 val file = fileEntry.name.drop(1)
                 SourcePosition(line, file, smap.sourceInfo!!.pathOrCleanFQN)
