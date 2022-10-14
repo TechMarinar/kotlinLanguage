@@ -1056,7 +1056,7 @@ class ExpressionCodegen(
             val sourcePosition = if (localSmaps.isEmpty() || localSmaps.last().inlineMarker.callee.parents.contains(irFunction)) {
                 // if this is first inline block
                 // or we are inside lambda that come from inline function argument
-                val line = fileEntry.getLineNumber(inlineCall.startOffset) + 1
+                val line = if (inlineCall.startOffset < 0) lastLineNumber else fileEntry.getLineNumber(inlineCall.startOffset) + 1
                 val file = fileEntry.name.drop(1)
                 SourcePosition(line, file, smap.sourceInfo!!.pathOrCleanFQN)
             } else {
