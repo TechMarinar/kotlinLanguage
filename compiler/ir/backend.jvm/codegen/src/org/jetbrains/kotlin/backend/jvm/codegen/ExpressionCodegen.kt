@@ -9,7 +9,6 @@ import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlined
 import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.lower.BOUND_RECEIVER_PARAMETER
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
-import org.jetbrains.kotlin.backend.common.lower.parents
 import org.jetbrains.kotlin.backend.jvm.*
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IntrinsicMethod
 import org.jetbrains.kotlin.backend.jvm.intrinsics.JavaClassProperty
@@ -177,7 +176,7 @@ class ExpressionCodegen(
 
     val state = context.state
 
-    private val fileEntry = (classCodegen.irClass.getOriginalDeclaration() ?: irFunction).fileParent.fileEntry
+    private val fileEntry = irFunction.fileParentBeforeInline.fileEntry
 
     override val visitor: InstructionAdapter
         get() = mv
@@ -214,11 +213,25 @@ class ExpressionCodegen(
 
     private fun getLineNumberForOffset(offset: Int): Int {
         if (getLocalSmap().isNotEmpty()) {
-            val inlineData = getLocalSmap().last()
-            val localFileEntry = inlineData.inlineMarker.callee.fileEntry
-            val lineNumber = localFileEntry.getLineNumber(offset) + 1
-            val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
-            return mappedLineNumber
+//            val inlineData = getLocalSmap().last()
+//            val localFileEntry = inlineData.inlineMarker.callee.fileEntry
+//            val lineNumber = localFileEntry.getLineNumber(offset) + 1
+//            val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
+//            return mappedLineNumber
+            var previousSmap: SourceMapper? = null
+            var result = -1
+            for (inlineData in getLocalSmap().reversed()) {
+                if (previousSmap == inlineData.smap.parent) {
+                    continue
+                }
+                previousSmap = inlineData.smap.parent
+                val localFileEntry = inlineData.inlineMarker.callee.fileEntry
+                val lineNumber = if (result == -1) localFileEntry.getLineNumber(offset) + 1 else result
+                val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
+                result = mappedLineNumber
+                // TODO should not evaluate second pass if it is lambda
+            }
+            return result
         }
         return fileEntry.getLineNumber(offset) + 1
     }
@@ -1028,18 +1041,15 @@ class ExpressionCodegen(
 //
         val localSmaps = getLocalSmap()
         if (declaration.originalExpression != null) {
-            val callSite = if (!declaration.callee.parents.contains(irFunction)) {
-                // if this is lambda from argument and not from body of inline function
-                localSmaps.lastOrNull()?.smap?.callSite
-            } else {
-                null
-            }
+            val callSite = null
 //            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
             val classSourceMapper = context.getSourceMapper(declaration.callee.parentClassOrNull!!)
             val classSMAP = SMAP(classSourceMapper.resultMappings)
+            //TODO("take classSMAP from cache")
 
+            val sourceMapper = if (localSmaps.isEmpty()) smap else localSmaps.last().smap.parent
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(smap, classSMAP, callSite), declaration)
+                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(sourceMapper, classSMAP, callSite), declaration)
             )
         } else {
             val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
@@ -1053,16 +1063,17 @@ class ExpressionCodegen(
                     (callGenerator as InlineCodegen<*>).compileInline()
                 }
 
-            val sourcePosition = if (localSmaps.isEmpty() || localSmaps.last().inlineMarker.callee.parents.contains(irFunction)) {
-                // if this is first inline block
-                // or we are inside lambda that come from inline function argument
+            val sourcePosition = let {
                 val line = if (inlineCall.startOffset < 0) lastLineNumber else fileEntry.getLineNumber(inlineCall.startOffset) + 1
                 val file = fileEntry.name.drop(1)
                 SourcePosition(line, file, smap.sourceInfo!!.pathOrCleanFQN)
-            } else {
-                localSmaps.last().smap.callSite
             }
-            val sourceMapCopier = SourceMapCopier(smap, nodeAndSmap.classSMAP, sourcePosition)
+            val newSmap = if (localSmaps.isEmpty()) {
+                smap
+            } else {
+                context.getSourceMapper(declaration.callee.parentClassOrNull!!)
+            }
+            val sourceMapCopier = SourceMapCopier(newSmap, nodeAndSmap.classSMAP, sourcePosition)
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration)
             )

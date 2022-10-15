@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.backend.jvm.codegen
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.MultifileFacadeFileEntry
-import org.jetbrains.kotlin.backend.jvm.ir.fileParent
+import org.jetbrains.kotlin.backend.jvm.ir.fileParentBeforeInline
 import org.jetbrains.kotlin.backend.jvm.ir.isInlineOnly
 import org.jetbrains.kotlin.backend.jvm.ir.isJvmInterface
 import org.jetbrains.kotlin.backend.jvm.ir.isPrivateInlineSuspend
@@ -27,7 +27,8 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.IrSimpleType
@@ -42,6 +43,7 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.Type
+import kotlin.collections.set
 
 class IrFrameMap : FrameMapBase<IrSymbol>() {
     private val typeMap = mutableMapOf<IrSymbol, Type>()
@@ -71,19 +73,11 @@ fun IrFrameMap.leave(irDeclaration: IrSymbolOwner): Int {
     return leave(irDeclaration.symbol)
 }
 
-fun IrClass.getOriginalDeclaration(): IrDeclaration? {
-    val originalClass = this.attributeOwnerIdBeforeInline ?: return null
-    return when (originalClass) {
-        is IrClass -> return originalClass
-        is IrFunctionExpression -> originalClass.function
-        is IrFunctionReference -> originalClass.symbol.owner
-        else -> null
-    }
-}
-
 fun JvmBackendContext.getSourceMapper(declaration: IrClass): SourceMapper {
-    val originalDeclarationBeforeInline = declaration.getOriginalDeclaration() ?: declaration
-    val fileEntry = originalDeclarationBeforeInline.fileParent.fileEntry
+    val irFile = declaration.fileParentBeforeInline
+    val type = declaration.attributeOwnerIdBeforeInline?.let { getLocalClassType(it) } ?: typeMapper.mapClass(declaration)
+
+    val fileEntry = irFile.fileEntry
     // NOTE: apparently inliner requires the source range to cover the
     //       whole file the class is declared in rather than the class only.
     val endLineNumber = when (fileEntry) {
@@ -92,9 +86,8 @@ fun JvmBackendContext.getSourceMapper(declaration: IrClass): SourceMapper {
     }
     val sourceFileName = when (fileEntry) {
         is MultifileFacadeFileEntry -> fileEntry.partFiles.singleOrNull()?.name
-        else -> originalDeclarationBeforeInline.fileParent.name
+        else -> irFile.name
     }
-    val type = declaration.attributeOwnerIdBeforeInline?.let { getLocalClassType(it)!! } ?: typeMapper.mapClass(declaration)
     return SourceMapper(
         SourceInfo(
             sourceFileName,
