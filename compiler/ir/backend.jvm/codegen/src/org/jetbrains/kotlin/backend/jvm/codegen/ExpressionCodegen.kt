@@ -219,12 +219,20 @@ class ExpressionCodegen(
 //            val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
 //            return mappedLineNumber
             var previousSmap: SourceMapper? = null
+            var previousData: JvmBackendContext.AdditionalIrInlineData? = null
             var result = -1
             for (inlineData in getLocalSmap().reversed()) {
-                if (previousSmap == inlineData.smap.parent) {
+//                if (getLocalSmap().last().smap.parent != inlineData.smap.parent) {
+//                    continue
+//                }
+//                if (previousSmap == inlineData.smap.parent) {
+//                    continue
+//                }
+                if (/*previousData?.isInvokeOnLambda() == true || */previousData?.smap?.parent == inlineData.smap.parent) {
                     continue
                 }
                 previousSmap = inlineData.smap.parent
+                previousData = inlineData
                 val localFileEntry = inlineData.inlineMarker.callee.fileEntry
                 val lineNumber = if (result == -1) localFileEntry.getLineNumber(offset) + 1 else result
                 val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
@@ -1043,11 +1051,17 @@ class ExpressionCodegen(
         if (declaration.originalExpression != null) {
             val callSite = null
 //            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
-            val classSourceMapper = context.getSourceMapper(declaration.callee.parentClassOrNull!!)
-            val classSMAP = SMAP(classSourceMapper.resultMappings)
-            //TODO("take classSMAP from cache")
+//            val classSMAP = typeToCachedSMAP.getOrPut(declaration.originalExpression!!) {
+//                SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings)
+//            }
+            val classSMAP = context.typeToCachedSMAP[context.getLocalClassType(declaration.originalExpression!!)]!!
 
-            val sourceMapper = if (localSmaps.isEmpty()) smap else localSmaps.last().smap.parent
+            val sourceMapper = if (localSmaps.isEmpty()) {
+                smap
+            } else {
+                context.classToCachedSourceMapper[declaration.inlinedAt.parentClassOrNull!!]!!
+//                localSmaps.last().smap.parent
+            }
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(sourceMapper, classSMAP, callSite), declaration)
             )
@@ -1063,15 +1077,21 @@ class ExpressionCodegen(
                     (callGenerator as InlineCodegen<*>).compileInline()
                 }
 
-            val sourcePosition = let {
-                val line = if (inlineCall.startOffset < 0) lastLineNumber else fileEntry.getLineNumber(inlineCall.startOffset) + 1
-                val file = fileEntry.name.drop(1)
-                SourcePosition(line, file, smap.sourceInfo!!.pathOrCleanFQN)
-            }
+            val key = declaration.callee.parentClassOrNull!!
             val newSmap = if (localSmaps.isEmpty()) {
+                context.classToCachedSourceMapper[key] = smap
                 smap
             } else {
-                context.getSourceMapper(declaration.callee.parentClassOrNull!!)
+                context.classToCachedSourceMapper.getOrPut(key) {
+                    context.getSourceMapper(key)
+                }
+            }
+            val sourcePosition = let {
+                val sourceInfo = newSmap.sourceInfo!!
+                val localFileEntry = declaration.callee.fileEntry
+                val line = if (inlineCall.startOffset < 0) lastLineNumber else localFileEntry.getLineNumber(inlineCall.startOffset) + 1
+//                val file = fileEntry.name.drop(1)
+                SourcePosition(line, sourceInfo.sourceFileName!!, sourceInfo.pathOrCleanFQN)
             }
             val sourceMapCopier = SourceMapCopier(newSmap, nodeAndSmap.classSMAP, sourcePosition)
             addToLocalSmap(

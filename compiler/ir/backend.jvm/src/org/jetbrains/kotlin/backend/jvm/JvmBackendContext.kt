@@ -16,7 +16,9 @@ import org.jetbrains.kotlin.backend.jvm.caches.BridgeLoweringCache
 import org.jetbrains.kotlin.backend.jvm.caches.CollectionStubComputer
 import org.jetbrains.kotlin.backend.jvm.mapping.IrTypeMapper
 import org.jetbrains.kotlin.backend.jvm.mapping.MethodSignatureMapper
+import org.jetbrains.kotlin.codegen.inline.SMAP
 import org.jetbrains.kotlin.codegen.inline.SourceMapCopier
+import org.jetbrains.kotlin.codegen.inline.SourceMapper
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
@@ -90,6 +92,9 @@ class JvmBackendContext(
     lateinit var getIntrinsic: (IrFunctionSymbol) -> IntrinsicMarker?
 
     // TODO doc
+    val classToCachedSourceMapper = mutableMapOf<IrClass, SourceMapper>()
+    val typeToCachedSMAP = mutableMapOf<Type, SMAP>()
+
     val localSmapCopiersByClass = mutableListOf<AdditionalIrInlineData>()
 
     data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker) {
