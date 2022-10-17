@@ -152,6 +152,7 @@ class ExpressionCodegen(
 //    }
 //
 //    private val localSmapCopiers: MutableList<AdditionalIrInlineData> = mutableListOf()
+    val classToCachedSourceMapper = mutableMapOf<IrDeclaration, SourceMapper>()
     val localSmapCopiersByClass = mutableListOf<JvmBackendContext.AdditionalIrInlineData>()
 
     private fun getLocalSmap(): List<JvmBackendContext.AdditionalIrInlineData> = /*context.*/localSmapCopiersByClass
@@ -1059,8 +1060,8 @@ class ExpressionCodegen(
             val sourceMapper = if (localSmaps.isEmpty()) {
                 smap
             } else {
-                context.classToCachedSourceMapper[declaration.inlinedAt.parentClassOrNull!!]!!
-//                localSmaps.last().smap.parent
+//                context.classToCachedSourceMapper[declaration.inlinedAt.parentClassOrNull!!]!!
+                localSmaps.last().smap.parent
             }
             addToLocalSmap(
                 JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(sourceMapper, classSMAP, callSite), declaration)
@@ -1077,18 +1078,21 @@ class ExpressionCodegen(
                     (callGenerator as InlineCodegen<*>).compileInline()
                 }
 
-            val key = declaration.callee.parentClassOrNull!!
+            val key = declaration.inlinedAt.parentClassOrNull!!
             val newSmap = if (localSmaps.isEmpty()) {
-                context.classToCachedSourceMapper[key] = smap
+                /*context.*/classToCachedSourceMapper[declaration.inlinedAt] = smap
                 smap
             } else {
-                context.classToCachedSourceMapper.getOrPut(key) {
+//                val anotherSmap = context.getSourceMapper(key)
+//                context.classToCachedSourceMapper[declaration.callee] = anotherSmap
+//                anotherSmap
+                /*context.*/classToCachedSourceMapper.getOrPut(declaration.inlinedAt) {
                     context.getSourceMapper(key)
                 }
             }
             val sourcePosition = let {
                 val sourceInfo = newSmap.sourceInfo!!
-                val localFileEntry = declaration.callee.fileEntry
+                val localFileEntry = declaration.inlinedAt.fileEntry
                 val line = if (inlineCall.startOffset < 0) lastLineNumber else localFileEntry.getLineNumber(inlineCall.startOffset) + 1
 //                val file = fileEntry.name.drop(1)
                 SourcePosition(line, sourceInfo.sourceFileName!!, sourceInfo.pathOrCleanFQN)

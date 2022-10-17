@@ -92,7 +92,7 @@ class JvmBackendContext(
     lateinit var getIntrinsic: (IrFunctionSymbol) -> IntrinsicMarker?
 
     // TODO doc
-    val classToCachedSourceMapper = mutableMapOf<IrClass, SourceMapper>()
+    val classToCachedSourceMapper = mutableMapOf<IrDeclaration, SourceMapper>()
     val typeToCachedSMAP = mutableMapOf<Type, SMAP>()
 
     val localSmapCopiersByClass = mutableListOf<AdditionalIrInlineData>()
