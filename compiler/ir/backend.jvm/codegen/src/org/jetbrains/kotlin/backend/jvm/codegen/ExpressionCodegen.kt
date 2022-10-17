@@ -229,7 +229,7 @@ class ExpressionCodegen(
 //                if (previousSmap == inlineData.smap.parent) {
 //                    continue
 //                }
-                if (/*previousData?.isInvokeOnLambda() == true || */previousData?.smap?.parent == inlineData.smap.parent) {
+                if (previousData?.isInvokeOnLambda() == true && inlineData.inlineMarker.callee != previousData.inlineMarker.originalExpression!!.function.parent) {
                     continue
                 }
                 previousSmap = inlineData.smap.parent
@@ -1061,10 +1061,16 @@ class ExpressionCodegen(
                 smap
             } else {
 //                context.classToCachedSourceMapper[declaration.inlinedAt.parentClassOrNull!!]!!
-                localSmaps.last().smap.parent
+                localSmaps.reversed().firstOrNull { it.inlineMarker.inlinedAt == declaration.originalExpression!!.function.parent }?.smap?.parent
+                    ?: localSmaps.last().smap.parent
+//                localSmaps.last().parentSmap
             }
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(SourceMapCopier(sourceMapper, classSMAP, callSite), declaration)
+                JvmBackendContext.AdditionalIrInlineData(
+                    SourceMapCopier(sourceMapper, classSMAP, callSite),
+                    declaration,
+                    context.getSourceMapper(declaration.callee.parentClassOrNull!!)
+                )
             )
         } else {
             val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
@@ -1078,7 +1084,7 @@ class ExpressionCodegen(
                     (callGenerator as InlineCodegen<*>).compileInline()
                 }
 
-            val key = declaration.inlinedAt.parentClassOrNull!!
+            val key = declaration.callee.parentClassOrNull!!
             val newSmap = if (localSmaps.isEmpty()) {
                 /*context.*/classToCachedSourceMapper[declaration.inlinedAt] = smap
                 smap
@@ -1086,9 +1092,11 @@ class ExpressionCodegen(
 //                val anotherSmap = context.getSourceMapper(key)
 //                context.classToCachedSourceMapper[declaration.callee] = anotherSmap
 //                anotherSmap
-                /*context.*/classToCachedSourceMapper.getOrPut(declaration.inlinedAt) {
-                    context.getSourceMapper(key)
-                }
+//                /*context.*/classToCachedSourceMapper.getOrPut(declaration.inlinedAt) {
+//                    context.getSourceMapper(key)
+//                }
+//                context.getSourceMapper(key)
+                localSmaps.last().parentSmap
             }
             val sourcePosition = let {
                 val sourceInfo = newSmap.sourceInfo!!
@@ -1099,7 +1107,7 @@ class ExpressionCodegen(
             }
             val sourceMapCopier = SourceMapCopier(newSmap, nodeAndSmap.classSMAP, sourcePosition)
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration)
+                JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration, context.getSourceMapper(key))
             )
         }
 //

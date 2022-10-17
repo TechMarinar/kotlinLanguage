@@ -97,7 +97,7 @@ class JvmBackendContext(
 
     val localSmapCopiersByClass = mutableListOf<AdditionalIrInlineData>()
 
-    data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker) {
+    data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker, val parentSmap: SourceMapper) {
         fun isInvokeOnLambda(): Boolean = inlineMarker.originalExpression != null
     }
 
