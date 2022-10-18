@@ -14,6 +14,7 @@ import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.Usage
 import org.gradle.api.initialization.IncludedBuild
 import org.gradle.api.internal.artifacts.DefaultProjectComponentIdentifier
+import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.work.NormalizeLineEndings
@@ -67,7 +68,9 @@ internal class KotlinCompilationNpmResolver(
 
     val project get() = target.project
 
-    val projectPath = project.path
+    val projectPath: String = project.path
+
+    val objectFactory: ObjectFactory = project.objects
 
     @Transient
     val packageJsonTaskHolder: TaskProvider<KotlinPackageJsonTask>? =
@@ -340,7 +343,8 @@ internal class KotlinCompilationNpmResolver(
             },
             externalNpmDependencies.map { it.toDeclaration() },
             fileCollectionDependencies,
-            projectPath
+            projectPath,
+            objectFactory,
         )
     }
 
@@ -375,7 +379,8 @@ internal class KotlinCompilationNpmResolver(
         var externalGradleDependencies: Collection<FileExternalGradleDependency>,
         var externalNpmDependencies: Collection<NpmDependencyDeclaration>,
         var fileCollectionDependencies: Collection<FileCollectionExternalGradleDependency>,
-        val projectPath: String
+        val projectPath: String,
+        val objectFactory: ObjectFactory,
     ) : Serializable {
         private val projectPackagesDir by lazy { compilationResolver.nodeJs_.projectPackagesDir }
         private val rootDir by lazy { compilationResolver.nodeJs_.rootProject.rootDir }
@@ -458,8 +463,7 @@ internal class KotlinCompilationNpmResolver(
             }
 
             return KotlinCompilationNpmResolution(
-                @Suppress("SENSELESS_COMPARISON")
-                if (compilationResolver.compilation != null) compilationResolver.project else null,
+                objectFactory,
                 compilationResolver.npmProject,
                 compositeDependencies,
                 importedExternalGradleDependencies,
