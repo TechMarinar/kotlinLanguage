@@ -37,7 +37,6 @@ import org.jetbrains.kotlin.gradle.utils.unavailableValueError
 class KotlinRootNpmResolver internal constructor(
     @Transient
     val nodeJs: NodeJsRootExtension?,
-    val forceFullResolve: Boolean
 ) {
     private val nodeJs_
         get() = nodeJs ?: unavailableValueError("nodeJs")
@@ -249,7 +248,6 @@ class KotlinRootNpmResolver internal constructor(
                 allNpmPackages,
                 yarnResolutions
                     .associate { it.path to it.toVersionString() },
-                forceFullResolve
             )
 
             return Installation(
@@ -263,7 +261,6 @@ class KotlinRootNpmResolver internal constructor(
             projectResolutions[project] ?: KotlinProjectNpmResolution.empty(project)
 
         internal fun install(
-            forceUpToDate: Boolean,
             args: List<String>,
             services: ServiceRegistry,
             logger: Logger

@@ -32,11 +32,7 @@ class YarnWorkspaces : YarnBasics() {
         logger: Logger,
         subProjects: Collection<KotlinCompilationNpmResolution>,
         resolutions: Map<String, String>,
-        forceFullResolve: Boolean
     ) {
-        if (forceFullResolve) {
-            rootProject?.let { setup(it) }
-        }
         return prepareRootPackageJson(
             nodeJs,
             rootProjectName,

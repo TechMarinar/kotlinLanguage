@@ -30,7 +30,6 @@ interface NpmApi : Serializable {
         logger: Logger,
         subProjects: Collection<KotlinCompilationNpmResolution>,
         resolutions: Map<String, String>,
-        forceFullResolve: Boolean
     )
 
     fun resolveRootProject(

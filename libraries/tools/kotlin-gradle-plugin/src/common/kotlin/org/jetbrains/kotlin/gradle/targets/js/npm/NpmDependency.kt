@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject.Companion.PACKAGE_J
 import java.io.File
 
 data class NpmDependency(
-    private val objectFactory: ObjectFactory,
+    val objectFactory: ObjectFactory,
     val scope: Scope = Scope.NORMAL,
     private val name: String,
     private val version: String,

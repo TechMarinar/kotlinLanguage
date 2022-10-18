@@ -7,14 +7,11 @@ package org.jetbrains.kotlin.gradle.targets.js.npm
 
 import org.gradle.api.Incubating
 import org.gradle.api.Task
-import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.logging.Logger
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
 import org.gradle.internal.service.ServiceRegistry
-import org.jetbrains.kotlin.gradle.internal.isInIdeaSync
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
-import org.jetbrains.kotlin.gradle.targets.js.npm.resolved.KotlinCompilationNpmResolution
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolved.KotlinProjectNpmResolution
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolved.KotlinRootNpmResolution
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinCompilationNpmResolver
@@ -62,31 +59,10 @@ import java.io.File
  * In this case, installed state will be reached by first call of [installIfNeeded] without executing
  * package manager.
  *
- * Resolution will be used from [NpmDependency] by calling [getNpmDependencyResolvedCompilation].
- * Also resolution will be checked before calling [NpmProject.require] and executing any task
- * that requires npm dependencies or node_modules.
- *
  * User can call [requireInstalled] to get resolution info.
- *
- * ## Resolving process during Idea import
- *
- * In this case [forceFullResolve] will be set, and all compilations will be resolved
- * even without `packageJson` task execution.
- *
- * During building gradle project model, all [NpmDependency] will be asked for there files,
- * and [getNpmDependencyResolvedCompilation] will be called. In the [forceFullResolve] mode
- * project will be fully resolved: all `package.json` files will be created, and package manager
- * will be called. We are manually tracking package.json files contents to avoid calling package manager
- * if nothing was changes.
- *
- * Note that in this case resolution process will be performed outside of task execution.
  */
 class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRootExtension?) {
-    private val forceFullResolve: Boolean by lazy {
-        (nodeJsSettings ?: unavailableValueError("nodeJsSettings")).rootProject.isInIdeaSync
-    }
-
-    val resolver = KotlinRootNpmResolver(nodeJsSettings, forceFullResolve)
+    val resolver = KotlinRootNpmResolver(nodeJsSettings)
 
     internal abstract class KotlinNpmResolutionManagerStateHolder : BuildService<BuildServiceParameters.None> {
         @Volatile
@@ -172,12 +148,9 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
             }
 
             return try {
-                val installUpToDate = nodeJsSettings?.npmInstallTaskProvider?.get()?.state?.upToDate ?: false
-                val forceUpToDate = installUpToDate && !forceFullResolve
-
                 val installation = prepareIfNeeded(requireUpToDateReason = reason, logger = logger)
                 val resolution = installation
-                    .install(forceUpToDate, args, services, logger)
+                    .install(args, services, logger)
                 state = ResolutionState.Installed(resolution)
                 resolution
             } catch (e: Exception) {
@@ -210,6 +183,7 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
             is ResolutionState.Prepared -> {
                 alreadyResolved(state0.preparedInstallation)
             }
+
             is ResolutionState.Configuring -> {
                 synchronized(stateHolder) {
                     val state1 = this.state
@@ -225,44 +199,16 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
                                 this.state = ResolutionState.Prepared(it)
                             }
                         }
+
                         is ResolutionState.Installed -> error("Project already installed")
                         is ResolutionState.Error -> throw state1.wrappedException
                     }
                 }
             }
+
             is ResolutionState.Installed -> error("Project already installed")
             is ResolutionState.Error -> throw state0.wrappedException
         }
-    }
-
-    internal fun getNpmDependencyResolvedCompilation(npmDependency: NpmDependency): KotlinCompilationNpmResolution? {
-        val project = npmDependency.project!!
-        val projectPath = project.path
-        val services = (project as ProjectInternal).services
-        val logger = project.logger
-
-        val resolvedProject =
-            if (forceFullResolve) {
-                installIfNeeded(reason = null, services = services, logger = logger)?.get(projectPath) ?: return null
-            } else {
-                // may return null only during npm resolution
-                // (it can be called since NpmDependency added to configuration that
-                // requires resolve to build package.json, in this case we should just skip this call)
-                val state0 = state
-                when (state0) {
-                    is ResolutionState.Prepared -> state0.preparedInstallation[projectPath]
-                    is ResolutionState.Configuring -> {
-                        return null
-                        //error("Cannot use NpmDependency before :kotlinNpmInstall task execution")
-                    }
-                    is ResolutionState.Installed -> state0.resolved[projectPath]
-                    is ResolutionState.Error -> {
-                        return null
-                    }
-                }
-            }
-
-        return resolvedProject.npmProjectsByNpmDependency[npmDependency] ?: error("NPM project resolved without $this")
     }
 
     internal fun <T> checkRequiredDependencies(task: T)

@@ -89,7 +89,7 @@ abstract class YarnBasics : NpmApi {
 
         val all = mutableSetOf<File>()
 
-        npmProject.resolve(dependency.key)?.let {
+        npmProject.resolve(dependency.name)?.let {
             if (it.isFile) all.add(it)
             if (it.path.endsWith(".js")) {
                 val baseName = it.path.removeSuffix(".js")
@@ -148,7 +148,7 @@ abstract class YarnBasics : NpmApi {
             }
             visited[src] = src
 
-            val deps = entryRegistry.find(src.key, src.version)
+            val deps = entryRegistry.find(src.name, src.version)
 
             src.resolvedVersion = deps.version
             src.integrity = deps.integrity
@@ -156,7 +156,7 @@ abstract class YarnBasics : NpmApi {
             deps.dependencies.mapTo(src.dependencies) { dep ->
                 val scopedName = dep.scopedName
                 val child = NpmDependency(
-                    project = src.project,
+                    objectFactory = src.objectFactory,
                     name = scopedName.toString(),
                     version = dep.version ?: "*"
                 )

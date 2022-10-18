@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.gradle.targets.js.npm.resolved
 
 import org.gradle.api.Project
+import org.gradle.api.model.ObjectFactory
 import org.jetbrains.kotlin.gradle.targets.js.npm.*
 import java.io.Serializable
 
@@ -13,25 +14,21 @@ import java.io.Serializable
  * Resolved [NpmProject]
  */
 class KotlinCompilationNpmResolution(
-    @Transient
-    private val _project: Project?,
+    private val objectFactory: ObjectFactory,
     val npmProject: NpmProject,
     val internalCompositeDependencies: Collection<GradleNodeModule>,
     val externalGradleDependencies: Collection<GradleNodeModule>,
     private val _externalNpmDependencies: Collection<NpmDependencyDeclaration>,
     val packageJson: PackageJson
 ) : Serializable {
-    val project
-        get() = _project!!
-
     val externalNpmDependencies
         get() = _externalNpmDependencies
             .map {
                 NpmDependency(
-                    project = _project,
+                    objectFactory = objectFactory,
+                    scope = it.scope,
                     name = it.name,
                     version = it.version,
-                    scope = it.scope,
                 )
             }
 }

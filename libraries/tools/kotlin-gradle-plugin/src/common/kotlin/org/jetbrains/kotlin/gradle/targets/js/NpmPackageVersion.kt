@@ -11,5 +11,5 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.NpmDependency
 
 data class NpmPackageVersion(val name: String, var version: String) : RequiredKotlinJsDependency {
     override fun createDependency(project: Project, scope: NpmDependency.Scope): Dependency =
-        NpmDependency(project, name, version, scope)
+        NpmDependency(project.objects, scope, name, version)
 }

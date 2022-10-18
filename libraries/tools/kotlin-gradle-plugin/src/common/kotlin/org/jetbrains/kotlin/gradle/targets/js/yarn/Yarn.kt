@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.gradle.targets.js.yarn
 import org.gradle.api.Project
 import org.gradle.api.logging.Logger
 import org.gradle.internal.service.ServiceRegistry
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmApi
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmDependency
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmEnvironment
@@ -18,11 +17,11 @@ import java.io.File
 class Yarn : NpmApi {
     private val yarnWorkspaces = YarnWorkspaces()
 
-    private fun getDelegate(project: Project): NpmApi =
+    private fun getDelegate(): NpmApi =
         yarnWorkspaces
 
     override fun setup(project: Project) =
-        getDelegate(project.rootProject).setup(project)
+        getDelegate().setup(project)
 
     override fun preparedFiles(nodeJs: NpmEnvironment): Collection<File> =
         yarnWorkspaces.preparedFiles(nodeJs)
@@ -35,7 +34,6 @@ class Yarn : NpmApi {
         logger: Logger,
         subProjects: Collection<KotlinCompilationNpmResolution>,
         resolutions: Map<String, String>,
-        forceFullResolve: Boolean
     ) = yarnWorkspaces
         .prepareRootProject(
             rootProject,
@@ -45,7 +43,6 @@ class Yarn : NpmApi {
             logger,
             subProjects,
             resolutions,
-            forceFullResolve
         )
 
     override fun resolveRootProject(
@@ -71,7 +68,7 @@ class Yarn : NpmApi {
         npmResolution: KotlinCompilationNpmResolution,
         dependency: NpmDependency,
         transitive: Boolean
-    ) = getDelegate(npmResolution.project)
+    ) = getDelegate()
         .resolveDependency(
             npmResolution,
             dependency,

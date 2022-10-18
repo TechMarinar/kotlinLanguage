@@ -16,7 +16,6 @@ import org.gradle.api.initialization.IncludedBuild
 import org.gradle.api.internal.artifacts.DefaultProjectComponentIdentifier
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.bundling.Zip
-import org.gradle.configurationcache.extensions.serviceOf
 import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.categoryByName
@@ -131,13 +130,6 @@ internal class KotlinCompilationNpmResolver(
         if (rootResolver.mayBeUpToDateTasksRegistry.get().shouldResolveNpmDependenciesFor(npmProject.packageJsonTaskPath)) {
             // when we need to resolve the compilation but the task is UP-TO-DATE, so we don't have ready resolution yet
             return resolve(skipWriting = true)
-        }
-        if (rootResolver.forceFullResolve) {
-            // need to force all NPM tasks to be configured in IDEA import
-            rootResolver.gradleNodeModules.fileHasher = project.serviceOf()
-            rootResolver.compositeNodeModules.fileHasher = project.serviceOf()
-            project.tasks.implementing(RequiresNpmDependencies::class).all {}
-            return resolve()
         }
         return null // we don't need to resolve NPM dependencies for the compilation
     }
