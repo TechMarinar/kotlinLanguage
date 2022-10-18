@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.distsDirectory
 import org.jetbrains.kotlin.gradle.report.BuildMetricsService
+import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWebpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl.Companion.webpackRulesContainer
@@ -54,12 +55,9 @@ constructor(
     @Transient
     private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
     private val versions = nodeJs.versions
-    private val resolutionManager = nodeJs.npmResolutionManager
     private val rootPackageDir by lazy { nodeJs.rootPackageDir }
 
     private val npmProject = compilation.npmProject
-
-    private val projectPath = project.path
 
     @get:Inject
     open val fileResolver: FileResolver
@@ -289,15 +287,13 @@ constructor(
         )
     }
 
-//    override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
-//        @Internal get() = createWebpackConfig(true).getRequiredDependencies(versions)
+    override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
+        @Internal get() = createWebpackConfig(true).getRequiredDependencies(versions)
 
     private val isContinuous = project.gradle.startParameter.isContinuous
 
     @TaskAction
     fun doExecute() {
-        resolutionManager.checkRequiredDependencies(task = this)
-
         val runner = createRunner()
 
         if (generateConfigOnly) {

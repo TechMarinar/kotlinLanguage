@@ -89,7 +89,6 @@ data class KotlinWebpackConfig(
 
     fun getRequiredDependencies(versions: NpmVersions) =
         mutableSetOf<RequiredKotlinJsDependency>().also {
-            it.add(versions.kotlinJsTestRunner)
             it.add(
                 versions.webpack
             )

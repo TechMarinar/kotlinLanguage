@@ -210,17 +210,4 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
             is ResolutionState.Error -> throw state0.wrappedException
         }
     }
-
-    internal fun <T> checkRequiredDependencies(task: T)
-            where T : RequiresNpmDependencies,
-                  T : Task {
-        val targetRequired = resolver.taskRequirements.byTask[task.path]?.toSet() ?: setOf()
-
-        task.requiredNpmDependencies.forEach {
-            check(it in targetRequired) {
-                "${it.createDependency(task.project)} required by $task was not found resolved at the time of nodejs package manager call. " +
-                        "This may be caused by changing $task configuration after npm dependencies resolution."
-            }
-        }
-    }
 }

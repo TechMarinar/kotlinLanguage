@@ -157,11 +157,6 @@ constructor(
         return testFramework
     }
 
-    override fun executeTests() {
-        npmResolutionManager.checkRequiredDependencies(task = this)
-        super.executeTests()
-    }
-
     override fun createTestExecutionSpec(): TCServiceMessagesTestExecutionSpec {
         val forkOptions = DefaultProcessForkOptions(fileResolver)
         forkOptions.workingDir = npmProjectDir

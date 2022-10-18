@@ -33,7 +33,6 @@ class KotlinMocha(@Transient override val compilation: KotlinJsCompilation, priv
 
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         get() = setOf(
-            versions.kotlinJsTestRunner,
             versions.mocha,
             versions.sourceMapSupport,
             versions.formatUtil

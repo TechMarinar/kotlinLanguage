@@ -83,7 +83,6 @@ class KotlinKarma(
     )
 
     init {
-        requiredDependencies.add(versions.kotlinJsTestRunner)
         requiredDependencies.add(versions.karma)
 
         useKotlinReporter()
