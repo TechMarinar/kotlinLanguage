@@ -11,6 +11,7 @@ import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.targets.js.MultiplePluginDeclarationDetector
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.implementing
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
@@ -30,7 +31,7 @@ open class YarnPlugin : Plugin<Project> {
         }
 
         val yarnRootExtension = this.extensions.create(YarnRootExtension.YARN, YarnRootExtension::class.java, this)
-        val nodeJs = NodeJsRootPlugin.apply(this)
+        val nodeJs = this.kotlinNodeJsExtension
 
         val setupTask = registerTask<YarnSetupTask>(YarnSetupTask.NAME) {
             it.dependsOn(nodeJs.nodeJsSetupTaskProvider)

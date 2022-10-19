@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBrowserDsl
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
@@ -34,7 +35,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     KotlinJsIrSubTarget(target, "browser"),
     KotlinJsBrowserDsl {
 
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
 
     private val webpackTaskConfigurations: MutableList<KotlinWebpack.() -> Unit> = mutableListOf()
     private val runTaskConfigurations: MutableList<KotlinWebpack.() -> Unit> = mutableListOf()
@@ -95,7 +96,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
         compilation: KotlinJsIrCompilation
     ) {
         val project = compilation.target.project
-        val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+        val nodeJs = project.rootProject.kotlinNodeJsExtension
 
         val commonRunTask = registerSubTargetTask<Task>(disambiguateCamelCased(RUN_TASK_NAME)) {}
 
@@ -157,7 +158,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
         compilation: KotlinJsIrCompilation
     ) {
         val project = compilation.target.project
-        val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+        val nodeJs = project.rootProject.kotlinNodeJsExtension
 
         val processResourcesTask = target.project.tasks.named(compilation.processResourcesTaskName)
 

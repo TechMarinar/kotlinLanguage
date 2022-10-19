@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.gradle.targets.js.*
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl.Companion.webpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.internal.parseNodeJsStackTraceAsJvm
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.*
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
@@ -47,7 +48,7 @@ class KotlinKarma(
     private val npmProject = compilation.npmProject
 
     @Transient
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
     private val nodeRootPackageDir by lazy { nodeJs.rootPackageDir }
     private val versions = nodeJs.versions
 

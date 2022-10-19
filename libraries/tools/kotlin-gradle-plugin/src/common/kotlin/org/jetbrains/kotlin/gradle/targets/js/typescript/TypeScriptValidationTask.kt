@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinIrJsGeneratedTSValidationStrategy
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import javax.inject.Inject
@@ -30,7 +31,7 @@ constructor(
 
     @get:Internal
     @Transient
-    protected val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    protected val nodeJs = project.rootProject.kotlinNodeJsExtension
 
     @get:Internal
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>

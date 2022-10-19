@@ -9,6 +9,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.*
 import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject
 import java.io.File
 
@@ -22,7 +23,7 @@ open class RootPackageJsonTask : DefaultTask() {
     }
 
     @Transient
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
     private val resolutionManager = nodeJs.npmResolutionManager
 
     @get:OutputFile

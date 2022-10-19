@@ -10,6 +10,7 @@ import org.gradle.internal.hash.FileHasher
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.targets.js.calculateDirHash
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.utils.ArchiveOperationsCompat
 import org.jetbrains.kotlin.statistics.metrics.NumericalMetrics
 import java.io.File
@@ -18,7 +19,7 @@ import javax.inject.Inject
 
 abstract class NodeJsSetupTask : DefaultTask() {
     @Transient
-    private val settings = NodeJsRootPlugin.apply(project.rootProject)
+    private val settings = project.rootProject.kotlinNodeJsExtension
     private val env by lazy { settings.requireConfigured() }
 
     private val shouldDownload = settings.download

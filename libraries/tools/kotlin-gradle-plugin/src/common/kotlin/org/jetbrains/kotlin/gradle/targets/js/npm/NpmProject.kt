@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.disambiguateName
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinPackageJsonTask
 import java.io.File
 import java.io.Serializable
@@ -36,7 +37,7 @@ open class NpmProject(@Transient val compilation: KotlinJsCompilation) : Seriali
     }
 
     @Transient
-    val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    val nodeJs = project.rootProject.kotlinNodeJsExtension
 
     val dir: File by lazy {
         nodeJs.projectPackagesDir.resolve(name)

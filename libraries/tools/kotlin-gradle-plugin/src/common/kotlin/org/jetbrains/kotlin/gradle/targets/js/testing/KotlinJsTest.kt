@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecuti
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
@@ -33,7 +34,7 @@ constructor(
 ) : KotlinTest(),
     RequiresNpmDependencies {
     @Transient
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
 
     private val npmResolutionManager by project.provider { nodeJs.npmResolutionManager }
 

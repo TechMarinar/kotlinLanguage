@@ -18,8 +18,6 @@ import java.io.Serializable
  * NodeJS package manager API
  */
 interface NpmApi : Serializable {
-    fun setup(project: Project)
-
     fun preparedFiles(nodeJs: NpmEnvironment): Collection<File>
 
     fun prepareRootProject(

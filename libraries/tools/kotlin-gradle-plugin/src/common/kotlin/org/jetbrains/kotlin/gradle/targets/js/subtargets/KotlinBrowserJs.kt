@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.gradle.targets.js.dsl.*
 import org.jetbrains.kotlin.gradle.targets.js.ir.executeTaskBaseName
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
@@ -129,7 +130,7 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
         devDceTaskProvider: TaskProvider<KotlinJsDceTask>
     ) {
         val project = compilation.target.project
-        val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+        val nodeJs = project.rootProject.kotlinNodeJsExtension
 
         val commonRunTask = registerSubTargetTask<Task>(disambiguateCamelCased(RUN_TASK_NAME)) {}
 
@@ -186,7 +187,7 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
         devDceTaskProvider: TaskProvider<KotlinJsDceTask>
     ) {
         val project = compilation.target.project
-        val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+        val nodeJs = project.rootProject.kotlinNodeJsExtension
 
         val processResourcesTask = target.project.tasks.named(compilation.processResourcesTaskName)
 

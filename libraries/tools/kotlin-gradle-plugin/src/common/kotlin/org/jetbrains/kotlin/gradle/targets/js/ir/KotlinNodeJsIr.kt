@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsNodeDsl
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsExec
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinWasmNode
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
@@ -20,7 +21,7 @@ abstract class KotlinNodeJsIr @Inject constructor(target: KotlinJsIrTarget) :
     KotlinJsIrSubTargetBase(target, "node"),
     KotlinJsNodeDsl {
 
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
 
     override val testTaskDescription: String
         get() = "Run all ${target.name} tests inside nodejs using the builtin test framework"

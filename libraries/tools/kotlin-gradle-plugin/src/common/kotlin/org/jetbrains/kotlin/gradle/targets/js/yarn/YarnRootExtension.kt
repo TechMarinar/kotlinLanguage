@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.gradle.internal.ConfigurationPhaseAware
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlatform
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.implementing
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonTask
@@ -77,7 +78,7 @@ open class YarnRootExtension(
 
     @Incubating
     fun disableGranularWorkspaces() {
-        val packageJsonUmbrella = NodeJsRootPlugin.apply(project)
+        val packageJsonUmbrella = project.kotlinNodeJsExtension
             .packageJsonUmbrellaTaskProvider
 
         rootPackageJsonTaskProvider.configure {
@@ -117,17 +118,6 @@ open class YarnRootExtension(
             reportNewYarnLock = reportNewYarnLock,
             yarnLockAutoReplace = yarnLockAutoReplace,
         )
-    }
-
-    internal fun executeSetup() {
-        NodeJsRootPlugin.apply(project).executeSetup()
-
-        if (!download) return
-
-        val yarnSetupTask = yarnSetupTaskProvider.get()
-        yarnSetupTask.actions.forEach {
-            it.execute(yarnSetupTask)
-        }
     }
 
     companion object {

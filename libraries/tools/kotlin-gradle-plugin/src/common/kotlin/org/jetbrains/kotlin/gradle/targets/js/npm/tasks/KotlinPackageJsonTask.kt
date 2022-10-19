@@ -12,6 +12,7 @@ import org.gradle.api.tasks.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.PackageJson
 import org.jetbrains.kotlin.gradle.targets.js.npm.fakePackageJsonValue
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
@@ -105,7 +106,7 @@ abstract class KotlinPackageJsonTask : DefaultTask() {
             val target = compilation.target
             val project = target.project
             val npmProject = compilation.npmProject
-            val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+            val nodeJs = project.rootProject.kotlinNodeJsExtension
 
             val rootClean = project.rootProject.tasks.named(BasePlugin.CLEAN_TASK_NAME)
             val npmCachesSetupTask = nodeJs.npmCachesSetupTaskProvider

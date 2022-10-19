@@ -20,9 +20,6 @@ class Yarn : NpmApi {
     private fun getDelegate(): NpmApi =
         yarnWorkspaces
 
-    override fun setup(project: Project) =
-        getDelegate().setup(project)
-
     override fun preparedFiles(nodeJs: NpmEnvironment): Collection<File> =
         yarnWorkspaces.preparedFiles(nodeJs)
 

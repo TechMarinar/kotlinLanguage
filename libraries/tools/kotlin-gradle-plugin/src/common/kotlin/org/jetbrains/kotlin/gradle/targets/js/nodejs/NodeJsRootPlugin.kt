@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmCachesSetup
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin
 import org.jetbrains.kotlin.gradle.tasks.CleanDataTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
+import org.jetbrains.kotlin.gradle.utils.castIsolatedKotlinPluginClassLoaderAware
 
 open class NodeJsRootPlugin : Plugin<Project> {
     override fun apply(project: Project): Unit = project.run {
@@ -73,5 +74,8 @@ open class NodeJsRootPlugin : Plugin<Project> {
             rootProject.plugins.apply(NodeJsRootPlugin::class.java)
             return rootProject.extensions.getByName(EXTENSION_NAME) as NodeJsRootExtension
         }
+
+        val Project.kotlinNodeJsExtension: NodeJsRootExtension
+            get() = extensions.getByName(EXTENSION_NAME).castIsolatedKotlinPluginClassLoaderAware()
     }
 }

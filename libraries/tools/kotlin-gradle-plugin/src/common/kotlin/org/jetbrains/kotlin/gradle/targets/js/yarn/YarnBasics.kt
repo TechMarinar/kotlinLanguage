@@ -21,10 +21,6 @@ abstract class YarnBasics : NpmApi {
     private val nonTransitiveResolvedDependencies = mutableMapOf<NpmDependency, Set<File>>()
     private val transitiveResolvedDependencies = mutableMapOf<NpmDependency, Set<File>>()
 
-    override fun setup(project: Project) {
-        YarnPlugin.apply(project).executeSetup()
-    }
-
     fun yarnExec(
         services: ServiceRegistry,
         logger: Logger,

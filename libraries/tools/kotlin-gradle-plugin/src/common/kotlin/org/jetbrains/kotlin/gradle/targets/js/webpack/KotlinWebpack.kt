@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWebpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl.Companion.webpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig.Mode
@@ -53,7 +54,7 @@ constructor(
     objects: ObjectFactory
 ) : DefaultTask(), RequiresNpmDependencies, WebpackRulesDsl {
     @Transient
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
     private val versions = nodeJs.versions
     private val rootPackageDir by lazy { nodeJs.rootPackageDir }
 

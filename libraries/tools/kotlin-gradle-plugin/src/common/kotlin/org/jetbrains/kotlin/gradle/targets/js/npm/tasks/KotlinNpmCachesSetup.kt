@@ -9,6 +9,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.TaskAction
 import org.gradle.internal.hash.FileHasher
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import javax.inject.Inject
 
 abstract class KotlinNpmCachesSetup : DefaultTask() {
@@ -17,7 +18,7 @@ abstract class KotlinNpmCachesSetup : DefaultTask() {
         get() = throw UnsupportedOperationException()
 
     @Transient
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
     private val gradleNodeModules = nodeJs.npmResolutionManager.resolver.gradleNodeModulesProvider
     private val compositeNodeModules = nodeJs.npmResolutionManager.resolver.compositeNodeModulesProvider
 
