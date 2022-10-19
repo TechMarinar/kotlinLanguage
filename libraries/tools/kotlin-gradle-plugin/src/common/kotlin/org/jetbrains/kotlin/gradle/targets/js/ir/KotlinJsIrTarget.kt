@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenExec
 import org.jetbrains.kotlin.gradle.targets.js.dsl.*
 import org.jetbrains.kotlin.gradle.targets.js.internal.RewriteSourceMapFilterReader
+import org.jetbrains.kotlin.gradle.targets.js.npm.NpmResolverPlugin
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.typescript.TypeScriptValidationTask
 import org.jetbrains.kotlin.gradle.tasks.locateOrRegisterTask
@@ -111,6 +112,7 @@ constructor(
     }
 
     private val commonLazy by lazy {
+        NpmResolverPlugin.apply(project)
         compilations.all { compilation ->
             compilation.binaries
                 .withType(JsIrBinary::class.java)
