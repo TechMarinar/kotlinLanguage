@@ -544,6 +544,17 @@ class ExpressionCodegen(
             }
         }
         // TODO end_1
+
+        if (marker.originalExpression == null) {
+            // TODO start_3: reuse from visitReturn
+            val lastStatement = marker.callee.body!!.statements.last()
+            if (lastStatement is IrReturn && lastStatement.returnTargetSymbol == marker.callee.symbol) {
+                block.statements.last().markLineNumber(startOffset = true)
+                mv.nop()
+            }
+            // TODO end_3
+        }
+
         dropLastLocalSmap()
 
 
