@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.ir.IrFileEntry
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
-import org.jetbrains.kotlin.ir.backend.js.lower.ES6AddInternalParametersToConstructorPhase
+import org.jetbrains.kotlin.ir.backend.js.lower.*
 import org.jetbrains.kotlin.ir.backend.js.sourceMapsInfo
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.*
@@ -421,8 +421,7 @@ private fun IrMemberAccessExpression<*>.validWithNullArgs() =
 
 private fun IrMemberAccessExpression<*>.couldArgumentBeNull(index: Int) =
     this is IrFunctionAccessExpression && symbol.owner.valueParameters[index].let {
-        it.origin === ES6AddInternalParametersToConstructorPhase.ES6_INIT_BOX_PARAMETER ||
-                it.origin === ES6AddInternalParametersToConstructorPhase.ES6_RESULT_TYPE_PARAMETER
+        it.origin == ES6_UTILITY_PARAMETER_ORIGIN
     }
 
 fun JsStatement.asBlock() = this as? JsBlock ?: JsBlock(this)
