@@ -58,7 +58,10 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             fun IrContainerExpression.getInlinableParameters(): List<IrValueParameter> {
                 val call = (this.statements.first() as IrInlineMarker).inlineCall
                 return call.getAllArgumentsWithIr()
-                    .filter { (param, arg) -> param.isInlineParameter() || arg is IrGetValue && arg.symbol.owner in inlinableParameters }
+                    .filter { (param, arg) ->
+                        param.isInlineParameter() && (arg ?: param.defaultValue?.expression) is IrFunctionExpression ||
+                                arg is IrGetValue && arg.symbol.owner in inlinableParameters
+                    }
                     .map { it.first }
             }
 
