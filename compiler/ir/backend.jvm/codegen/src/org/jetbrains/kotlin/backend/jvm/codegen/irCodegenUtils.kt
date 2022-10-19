@@ -8,10 +8,7 @@ package org.jetbrains.kotlin.backend.jvm.codegen
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.MultifileFacadeFileEntry
-import org.jetbrains.kotlin.backend.jvm.ir.fileParentBeforeInline
-import org.jetbrains.kotlin.backend.jvm.ir.isInlineOnly
-import org.jetbrains.kotlin.backend.jvm.ir.isJvmInterface
-import org.jetbrains.kotlin.backend.jvm.ir.isPrivateInlineSuspend
+import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.backend.jvm.mapping.IrTypeMapper
 import org.jetbrains.kotlin.backend.jvm.mapping.mapClass
 import org.jetbrains.kotlin.backend.jvm.mapping.mapSupertype
@@ -75,7 +72,7 @@ fun IrFrameMap.leave(irDeclaration: IrSymbolOwner): Int {
 
 fun JvmBackendContext.getSourceMapper(declaration: IrClass): SourceMapper {
     val irFile = declaration.fileParentBeforeInline
-    val type = declaration.attributeOwnerIdBeforeInline?.let { getLocalClassType(it) } ?: typeMapper.mapClass(declaration)
+    val type = declaration.getAttributeBeforeInline()?.let { getLocalClassType(it) } ?: typeMapper.mapClass(declaration)
 
     val fileEntry = irFile.fileEntry
     // NOTE: apparently inliner requires the source range to cover the
