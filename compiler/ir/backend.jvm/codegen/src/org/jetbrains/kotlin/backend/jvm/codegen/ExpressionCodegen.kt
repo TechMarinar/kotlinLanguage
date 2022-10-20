@@ -513,24 +513,31 @@ class ExpressionCodegen(
         block.getAdditionalStatementsFromInlinedBlock().forEach { exp ->
             exp.accept(this, data).discard()
         }
+
+        // TODO start_4: reuse code from org/jetbrains/kotlin/codegen/inline/MethodInliner.kt:267
+        if (marker.originalExpression != null) {
+            val overrideLineNumber = marker.callee.isInlineOnly()
+            val currentLineNumber = if (overrideLineNumber) getLocalSmap().last().smap.callSite!!.line else lineNumberForOffset
+
+            val firstLine = marker.callee.fileEntry.getLineNumber(marker.callee.startOffset)
+            // TODO DefaultLambda
+            if (/*(info is DefaultLambda != overrideLineNumber) &&*/ currentLineNumber >= 0 && firstLine == currentLineNumber) {
+                val label = Label()
+                val fakeLineNumber =
+                    getLocalSmap().last().smap.parent.mapSyntheticLineNumber(SourceMapper.LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER)
+                mv.visitLabel(label)
+                mv.visitLineNumber(fakeLineNumber, label)
+            }
+        }
+        // TODO end_4
+
         // TODO create smap for defaults
         visitInlineMarker(marker, data)
-
-//        val old = useSmapForLineNumbers
-//        useSmapForLineNumbers = true
 
         val result = block.getOriginalStatementsFromInlinedBlock().fold(unitValue) { prev, exp ->
             prev.discard()
             exp.accept(this, data)
         }
-
-//        useSmapForLineNumbers = old
-
-//        val result = block.statements.fold(unitValue) { prev, exp ->
-//            useSmapForLineNumbers = false
-//            prev.discard()
-//            exp.accept(this, data)
-//        }
 
         val callee = marker.callee
         val calleeBody = callee.body
@@ -580,12 +587,6 @@ class ExpressionCodegen(
             }
             // TODO end_2
         }
-
-//            if (inlineData.isInvokeOnLambda()) {
-//                // TODO the rest
-//                inlineData.inlineMarker.inlineCall.markLineNumber(startOffset = false)
-//                mv.nop()
-//            }
 
         return result
     }
