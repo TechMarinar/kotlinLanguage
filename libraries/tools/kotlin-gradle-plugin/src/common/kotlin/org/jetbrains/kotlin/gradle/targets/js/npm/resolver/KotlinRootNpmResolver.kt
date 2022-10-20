@@ -290,15 +290,6 @@ class KotlinRootNpmResolver internal constructor(
             }
         }
     }
-
-    private fun removeOutdatedPackages(nodeJs: NodeJsRootExtension, allNpmPackages: List<KotlinCompilationNpmResolution>) {
-        val packages = allNpmPackages.mapTo(mutableSetOf()) { it.npmProject.name }
-        nodeJs.projectPackagesDir.listFiles()?.forEach {
-            if (it.name !in packages) {
-                it.deleteRecursively()
-            }
-        }
-    }
 }
 
 enum class RootResolverState {
