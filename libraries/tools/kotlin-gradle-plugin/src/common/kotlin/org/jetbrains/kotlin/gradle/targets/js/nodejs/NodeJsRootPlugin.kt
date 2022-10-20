@@ -10,10 +10,10 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.plugins.BasePlugin
 import org.jetbrains.kotlin.gradle.targets.js.MultiplePluginDeclarationDetector
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension.Companion.EXTENSION_NAME
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.PACKAGE_JSON_UMBRELLA_TASK_NAME
-import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmCachesSetup
+import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin
 import org.jetbrains.kotlin.gradle.tasks.CleanDataTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
@@ -29,7 +29,19 @@ open class NodeJsRootPlugin : Plugin<Project> {
             "NodeJsRootPlugin can be applied only to root project"
         }
 
-        val settings = this.extensions.create(EXTENSION_NAME, NodeJsRootExtension::class.java, this)
+        val settings = this.extensions.create(
+            NodeJsRootExtension.EXTENSION_NAME,
+            NodeJsRootExtension::class.java,
+            logger,
+            gradle,
+            buildDir
+        )
+
+        this.extensions.create(
+            NodeJsTaskProviders.EXTENSION_NAME,
+            NodeJsTaskProviders::class.java,
+            this
+        )
 
         val setupTask = registerTask<NodeJsSetupTask>(NodeJsSetupTask.NAME) {
             it.group = TASKS_GROUP_NAME
@@ -72,10 +84,13 @@ open class NodeJsRootPlugin : Plugin<Project> {
         fun apply(rootProject: Project): NodeJsRootExtension {
             check(rootProject == rootProject.rootProject)
             rootProject.plugins.apply(NodeJsRootPlugin::class.java)
-            return rootProject.extensions.getByName(EXTENSION_NAME) as NodeJsRootExtension
+            return rootProject.extensions.getByName(NodeJsRootExtension.EXTENSION_NAME) as NodeJsRootExtension
         }
 
         val Project.kotlinNodeJsExtension: NodeJsRootExtension
-            get() = extensions.getByName(EXTENSION_NAME).castIsolatedKotlinPluginClassLoaderAware()
+            get() = extensions.getByName(NodeJsRootExtension.EXTENSION_NAME).castIsolatedKotlinPluginClassLoaderAware()
+
+        val Project.kotlinNodeJsTaskProvidersExtension: NodeJsTaskProviders
+            get() = extensions.getByName(NodeJsTaskProviders.EXTENSION_NAME).castIsolatedKotlinPluginClassLoaderAware()
     }
 }

@@ -10,15 +10,14 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.report.BuildMetricsService
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalDceDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBrowserDsl
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsTaskProviders
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
@@ -36,6 +35,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     KotlinJsBrowserDsl {
 
     private val nodeJs = project.rootProject.kotlinNodeJsExtension
+    private val nodeJsTaskProviders = project.rootProject.kotlinNodeJsTaskProvidersExtension
 
     private val webpackTaskConfigurations: MutableList<KotlinWebpack.() -> Unit> = mutableListOf()
     private val runTaskConfigurations: MutableList<KotlinWebpack.() -> Unit> = mutableListOf()
@@ -45,9 +45,9 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
 
     override fun configureTestDependencies(test: KotlinJsTest) {
         test.dependsOn(
-            nodeJs.npmInstallTaskProvider,
-            nodeJs.storeYarnLockTaskProvider,
-            nodeJs.nodeJsSetupTaskProvider
+            nodeJsTaskProviders.npmInstallTaskProvider,
+            nodeJsTaskProviders.storeYarnLockTaskProvider,
+            nodeJsTaskProviders.nodeJsSetupTaskProvider
         )
     }
 
@@ -95,9 +95,6 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     override fun configureRun(
         compilation: KotlinJsIrCompilation
     ) {
-        val project = compilation.target.project
-        val nodeJs = project.rootProject.kotlinNodeJsExtension
-
         val commonRunTask = registerSubTargetTask<Task>(disambiguateCamelCased(RUN_TASK_NAME)) {}
 
         compilation.binaries
@@ -143,7 +140,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
                         mode = mode,
                         entryFileProvider = entryFileProvider,
                         configurationActions = runTaskConfigurations,
-                        nodeJs = nodeJs
+                        nodeJsTaskProviders = nodeJsTaskProviders
                     )
                 }
 
@@ -209,7 +206,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
                         mode = mode,
                         entryFileProvider = entryFileProvider,
                         configurationActions = webpackTaskConfigurations,
-                        nodeJs = nodeJs
+                        nodeJsTaskProviders = nodeJsTaskProviders
                     )
                 }
 
@@ -241,11 +238,11 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
         mode: KotlinJsBinaryMode,
         entryFileProvider: Provider<File>,
         configurationActions: List<KotlinWebpack.() -> Unit>,
-        nodeJs: NodeJsRootExtension
+        nodeJsTaskProviders: NodeJsTaskProviders
     ) {
         dependsOn(
-            nodeJs.npmInstallTaskProvider,
-            nodeJs.storeYarnLockTaskProvider,
+            nodeJsTaskProviders.npmInstallTaskProvider,
+            nodeJsTaskProviders.storeYarnLockTaskProvider,
             target.project.tasks.named(compilation.processResourcesTaskName)
         )
 

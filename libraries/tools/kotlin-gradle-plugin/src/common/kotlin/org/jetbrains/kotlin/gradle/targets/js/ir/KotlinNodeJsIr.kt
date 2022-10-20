@@ -8,8 +8,8 @@ package org.jetbrains.kotlin.gradle.targets.js.ir
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsNodeDsl
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsExec
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinWasmNode
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
@@ -22,6 +22,7 @@ abstract class KotlinNodeJsIr @Inject constructor(target: KotlinJsIrTarget) :
     KotlinJsNodeDsl {
 
     private val nodeJs = project.rootProject.kotlinNodeJsExtension
+    private val nodeJsTaskProviders = project.rootProject.kotlinNodeJsTaskProvidersExtension
 
     override val testTaskDescription: String
         get() = "Run all ${target.name} tests inside nodejs using the builtin test framework"
@@ -51,9 +52,9 @@ abstract class KotlinNodeJsIr @Inject constructor(target: KotlinJsIrTarget) :
 
     override fun configureTestDependencies(test: KotlinJsTest) {
         test.dependsOn(
-            nodeJs.npmInstallTaskProvider,
-            nodeJs.storeYarnLockTaskProvider,
-            nodeJs.nodeJsSetupTaskProvider
+            nodeJsTaskProviders.npmInstallTaskProvider,
+            nodeJsTaskProviders.storeYarnLockTaskProvider,
+            nodeJsTaskProviders.nodeJsSetupTaskProvider
         )
     }
 

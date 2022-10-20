@@ -240,7 +240,6 @@ class KotlinRootNpmResolver internal constructor(
             compositeNodeModules.close()
 
             packageManager.prepareRootProject(
-                rootProject,
                 npmEnvironment,
                 rootProjectName,
                 rootProjectVersion,
@@ -267,7 +266,7 @@ class KotlinRootNpmResolver internal constructor(
         ): KotlinRootNpmResolution {
             synchronized(projectResolvers) {
                 if (state == RootResolverState.INSTALLED) {
-                    return KotlinRootNpmResolution(rootProject, projectResolutions)
+                    return KotlinRootNpmResolution(projectResolutions)
                 }
                 check(state == RootResolverState.PROJECTS_CLOSED) {
                     "Projects must be closed"
@@ -287,7 +286,7 @@ class KotlinRootNpmResolver internal constructor(
                     args
                 )
 
-                return KotlinRootNpmResolution(rootProject, projectResolutions)
+                return KotlinRootNpmResolution(projectResolutions)
             }
         }
     }

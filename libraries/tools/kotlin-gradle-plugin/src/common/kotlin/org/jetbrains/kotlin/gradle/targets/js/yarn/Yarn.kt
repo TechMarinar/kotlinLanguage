@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.yarn
 
-import org.gradle.api.Project
 import org.gradle.api.logging.Logger
 import org.gradle.internal.service.ServiceRegistry
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmApi
@@ -24,7 +23,6 @@ class Yarn : NpmApi {
         yarnWorkspaces.preparedFiles(nodeJs)
 
     override fun prepareRootProject(
-        rootProject: Project?,
         nodeJs: NpmEnvironment,
         rootProjectName: String,
         rootProjectVersion: String,
@@ -33,7 +31,6 @@ class Yarn : NpmApi {
         resolutions: Map<String, String>,
     ) = yarnWorkspaces
         .prepareRootProject(
-            rootProject,
             nodeJs,
             rootProjectName,
             rootProjectVersion,

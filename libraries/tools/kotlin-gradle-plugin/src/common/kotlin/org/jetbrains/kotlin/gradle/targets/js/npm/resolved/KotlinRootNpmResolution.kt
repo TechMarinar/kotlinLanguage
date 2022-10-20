@@ -5,10 +5,7 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.npm.resolved
 
-import org.gradle.api.Project
-
 internal class KotlinRootNpmResolution(
-    val rootProject: Project?,
     internal val projects: Map<String, KotlinProjectNpmResolution>
 ) {
     operator fun get(project: String) = projects[project] ?: KotlinProjectNpmResolution.empty(project)

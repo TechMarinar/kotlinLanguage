@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.yarn
 
-import org.gradle.api.Project
 import org.gradle.api.logging.Logger
 import org.gradle.internal.service.ServiceRegistry
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmApi
@@ -25,7 +24,6 @@ class YarnWorkspaces : YarnBasics() {
     }
 
     override fun prepareRootProject(
-        rootProject: Project?,
         nodeJs: NpmEnvironment,
         rootProjectName: String,
         rootProjectVersion: String,

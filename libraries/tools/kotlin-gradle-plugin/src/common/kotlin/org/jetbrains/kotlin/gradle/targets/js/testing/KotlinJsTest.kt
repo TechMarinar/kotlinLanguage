@@ -14,7 +14,6 @@ import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
@@ -36,13 +35,9 @@ constructor(
     @Transient
     private val nodeJs = project.rootProject.kotlinNodeJsExtension
 
-    private val npmResolutionManager by project.provider { nodeJs.npmResolutionManager }
-
     private val nodeExecutable by project.provider { nodeJs.requireConfigured().nodeExecutable }
 
     private val npmProjectDir by project.provider { compilation.npmProject.dir }
-
-    private val projectPath = project.path
 
     @Input
     var environment = mutableMapOf<String, String>()

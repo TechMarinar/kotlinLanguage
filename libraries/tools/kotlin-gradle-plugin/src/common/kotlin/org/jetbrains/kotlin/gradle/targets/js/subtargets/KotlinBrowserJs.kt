@@ -12,7 +12,6 @@ import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
 import org.jetbrains.kotlin.gradle.plugin.COMPILER_CLASSPATH_CONFIGURATION_NAME
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.isMain
 import org.jetbrains.kotlin.gradle.plugin.mpp.isTest
@@ -20,9 +19,8 @@ import org.jetbrains.kotlin.gradle.report.BuildMetricsService
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.js.dsl.*
 import org.jetbrains.kotlin.gradle.targets.js.ir.executeTaskBaseName
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsTaskProviders
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
@@ -130,7 +128,7 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
         devDceTaskProvider: TaskProvider<KotlinJsDceTask>
     ) {
         val project = compilation.target.project
-        val nodeJs = project.rootProject.kotlinNodeJsExtension
+        val nodeJsTaskProviders = project.rootProject.kotlinNodeJsTaskProvidersExtension
 
         val commonRunTask = registerSubTargetTask<Task>(disambiguateCamelCased(RUN_TASK_NAME)) {}
 
@@ -168,7 +166,7 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
                         devDceTaskProvider = devDceTaskProvider,
                         mode = type,
                         configurationActions = runTaskConfigurations,
-                        nodeJs = nodeJs
+                        nodeJsTaskProviders = nodeJsTaskProviders
                     )
                 }
 
@@ -187,7 +185,7 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
         devDceTaskProvider: TaskProvider<KotlinJsDceTask>
     ) {
         val project = compilation.target.project
-        val nodeJs = project.rootProject.kotlinNodeJsExtension
+        val nodeJsTaskProviders = project.rootProject.kotlinNodeJsTaskProvidersExtension
 
         val processResourcesTask = target.project.tasks.named(compilation.processResourcesTaskName)
 
@@ -232,7 +230,7 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
                         devDceTaskProvider = devDceTaskProvider,
                         mode = type,
                         configurationActions = webpackTaskConfigurations,
-                        nodeJs = nodeJs
+                        nodeJsTaskProviders = nodeJsTaskProviders
                     )
                 }
 
@@ -259,11 +257,11 @@ abstract class KotlinBrowserJs @Inject constructor(target: KotlinJsTarget) :
         devDceTaskProvider: TaskProvider<KotlinJsDceTask>,
         mode: KotlinJsBinaryMode,
         configurationActions: List<KotlinWebpack.() -> Unit>,
-        nodeJs: NodeJsRootExtension
+        nodeJsTaskProviders: NodeJsTaskProviders
     ) {
         dependsOn(
-            nodeJs.npmInstallTaskProvider,
-            nodeJs.storeYarnLockTaskProvider,
+            nodeJsTaskProviders.npmInstallTaskProvider,
+            nodeJsTaskProviders.storeYarnLockTaskProvider,
             target.project.tasks.named(compilation.processResourcesTaskName)
         )
 

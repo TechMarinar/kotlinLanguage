@@ -13,13 +13,13 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.PackageJson
 import org.jetbrains.kotlin.gradle.targets.js.npm.fakePackageJsonValue
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
-import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.MayBeUpToDatePackageJsonTasksRegistry
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinCompilationNpmResolver
+import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.MayBeUpToDatePackageJsonTasksRegistry
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.PACKAGE_JSON_UMBRELLA_TASK_NAME
-import org.jetbrains.kotlin.gradle.tasks.dependsOn
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.getValue
 import java.io.File
@@ -107,11 +107,12 @@ abstract class KotlinPackageJsonTask : DefaultTask() {
             val project = target.project
             val npmProject = compilation.npmProject
             val nodeJs = project.rootProject.kotlinNodeJsExtension
+            val nodeJsTaskProviders = project.rootProject.kotlinNodeJsTaskProvidersExtension
 
             val rootClean = project.rootProject.tasks.named(BasePlugin.CLEAN_TASK_NAME)
-            val npmCachesSetupTask = nodeJs.npmCachesSetupTaskProvider
+            val npmCachesSetupTask = nodeJsTaskProviders.npmCachesSetupTaskProvider
             val packageJsonTaskName = npmProject.packageJsonTaskName
-            val packageJsonUmbrella = nodeJs.packageJsonUmbrellaTaskProvider
+            val packageJsonUmbrella = nodeJsTaskProviders.packageJsonUmbrellaTaskProvider
             val packageJsonTask = project.registerTask<KotlinPackageJsonTask>(packageJsonTaskName) { task ->
                 task.nodeJs = nodeJs
                 task.compilation = compilation
@@ -130,7 +131,7 @@ abstract class KotlinPackageJsonTask : DefaultTask() {
                 task.inputs.file(packageJsonTask.map { it.packageJson })
             }
 
-            nodeJs.rootPackageJsonTaskProvider!!.configure { it.mustRunAfter(packageJsonTask) }
+            nodeJsTaskProviders.rootPackageJsonTaskProvider.configure { it.mustRunAfter(packageJsonTask) }
 
             return packageJsonTask
         }

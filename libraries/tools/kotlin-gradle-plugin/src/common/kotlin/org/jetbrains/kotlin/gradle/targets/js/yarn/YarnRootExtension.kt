@@ -12,8 +12,7 @@ import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.internal.ConfigurationPhaseAware
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlatform
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.implementing
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonTask
@@ -78,7 +77,7 @@ open class YarnRootExtension(
 
     @Incubating
     fun disableGranularWorkspaces() {
-        val packageJsonUmbrella = project.kotlinNodeJsExtension
+        val packageJsonUmbrella = project.kotlinNodeJsTaskProvidersExtension
             .packageJsonUmbrellaTaskProvider
 
         rootPackageJsonTaskProvider.configure {

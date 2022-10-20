@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.npm
 
-import org.gradle.api.Project
 import org.gradle.api.logging.Logger
 import org.gradle.internal.service.ServiceRegistry
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
@@ -21,7 +20,6 @@ interface NpmApi : Serializable {
     fun preparedFiles(nodeJs: NpmEnvironment): Collection<File>
 
     fun prepareRootProject(
-        rootProject: Project?,
         nodeJs: NpmEnvironment,
         rootProjectName: String,
         rootProjectVersion: String,

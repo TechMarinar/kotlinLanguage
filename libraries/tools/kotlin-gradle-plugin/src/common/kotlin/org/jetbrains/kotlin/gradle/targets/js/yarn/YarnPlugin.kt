@@ -12,6 +12,7 @@ import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.targets.js.MultiplePluginDeclarationDetector
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.implementing
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
@@ -32,9 +33,10 @@ open class YarnPlugin : Plugin<Project> {
 
         val yarnRootExtension = this.extensions.create(YarnRootExtension.YARN, YarnRootExtension::class.java, this)
         val nodeJs = this.kotlinNodeJsExtension
+        val nodeJsTaskProviders = this.kotlinNodeJsTaskProvidersExtension
 
         val setupTask = registerTask<YarnSetupTask>(YarnSetupTask.NAME) {
-            it.dependsOn(nodeJs.nodeJsSetupTaskProvider)
+            it.dependsOn(nodeJsTaskProviders.nodeJsSetupTaskProvider)
 
             it.configuration = provider {
                 this.project.configurations.detachedConfiguration(this.project.dependencies.create(it.ivyDependency))
@@ -45,7 +47,7 @@ open class YarnPlugin : Plugin<Project> {
         val rootClean = project.rootProject.tasks.named(BasePlugin.CLEAN_TASK_NAME)
 
         val rootPackageJson = tasks.register(RootPackageJsonTask.NAME, RootPackageJsonTask::class.java) { task ->
-            task.dependsOn(nodeJs.npmCachesSetupTaskProvider)
+            task.dependsOn(nodeJsTaskProviders.npmCachesSetupTaskProvider)
             task.group = NodeJsRootPlugin.TASKS_GROUP_NAME
             task.description = "Create root package.json"
 
@@ -66,7 +68,7 @@ open class YarnPlugin : Plugin<Project> {
             it.description = "Clean unused local yarn version"
         }
 
-        val packageJsonUmbrella = nodeJs
+        val packageJsonUmbrella = nodeJsTaskProviders
             .packageJsonUmbrellaTaskProvider
 
         yarnRootExtension.rootPackageJsonTaskProvider.configure {

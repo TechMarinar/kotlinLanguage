@@ -5,35 +5,24 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.nodejs
 
-import org.gradle.api.Project
-import org.gradle.api.Task
-import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.logging.Logger
 import org.jetbrains.kotlin.gradle.internal.ConfigurationPhaseAware
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.targets.js.NpmVersions
 import org.jetbrains.kotlin.gradle.targets.js.npm.KotlinNpmResolutionManager
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmApi
-import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.PACKAGE_JSON_UMBRELLA_TASK_NAME
-import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmCachesSetup
-import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
-import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.Yarn
-import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask
-import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask.Companion.RESTORE_YARN_LOCK_NAME
-import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask.Companion.STORE_YARN_LOCK_NAME
 import org.jetbrains.kotlin.gradle.tasks.internal.CleanableStore
 import java.io.File
 import java.io.Serializable
 
-open class NodeJsRootExtension(@Transient val rootProject: Project) : ConfigurationPhaseAware<NodeJsEnv>(), Serializable {
-    init {
-        check(rootProject.rootProject == rootProject)
-    }
+open class NodeJsRootExtension(
+    private val logger: Logger,
+    gradleUserHomeDir: File,
+    rootProjectBuildDir: File
+) : ConfigurationPhaseAware<NodeJsEnv>(), Serializable {
 
-    private val logger = rootProject.logger
-
-    private val gradleHome = rootProject.gradle.gradleUserHomeDir.also {
+    private val gradleHome = gradleUserHomeDir.also {
         logger.kotlinInfo("Storing cached files in $it")
     }
 
@@ -48,55 +37,9 @@ open class NodeJsRootExtension(@Transient val rootProject: Project) : Configurat
 
     var packageManager: NpmApi by Property(Yarn())
 
-    @Transient
-    private val projectProperties = PropertiesProvider(rootProject)
-
-    private val errorGenerateExternals = run {
-        if (projectProperties.errorJsGenerateExternals != null) {
-            logger.warn(
-                """
-                |
-                |==========
-                |Please note, Dukat integration in Gradle plugin does not work now, it was removed.
-                |We rethink how we can integrate properly.
-                |==========
-                |
-                """.trimMargin()
-            )
-        }
-    }
-
     val taskRequirements: TasksRequirements = TasksRequirements()
 
-    val nodeJsSetupTaskProvider: TaskProvider<out NodeJsSetupTask>
-        get() = rootProject.tasks.withType(NodeJsSetupTask::class.java).named(NodeJsSetupTask.NAME)
-
-    @Suppress("UNNECESSARY_SAFE_CALL", "SAFE_CALL_WILL_CHANGE_NULLABILITY") // TODO: investigate this warning; fixing it breaks integration tests.
-    val npmInstallTaskProvider: TaskProvider<out KotlinNpmInstallTask>?
-        get() = rootProject?.tasks?.withType(KotlinNpmInstallTask::class.java)?.named(KotlinNpmInstallTask.NAME)
-
-    val packageJsonUmbrellaTaskProvider: TaskProvider<Task>
-        get() = rootProject.tasks.named(PACKAGE_JSON_UMBRELLA_TASK_NAME)
-
-    @Suppress("UNNECESSARY_SAFE_CALL", "SAFE_CALL_WILL_CHANGE_NULLABILITY") // TODO: investigate this warning; fixing it breaks integration tests.
-    val rootPackageJsonTaskProvider: TaskProvider<RootPackageJsonTask>?
-        get() = rootProject?.tasks?.withType(RootPackageJsonTask::class.java)?.named(RootPackageJsonTask.NAME)
-
-    @Suppress("UNNECESSARY_SAFE_CALL", "SAFE_CALL_WILL_CHANGE_NULLABILITY") // TODO: investigate this warning; fixing it breaks integration tests.
-    val npmCachesSetupTaskProvider: TaskProvider<out KotlinNpmCachesSetup>?
-        get() = rootProject?.tasks?.withType(KotlinNpmCachesSetup::class.java)?.named(KotlinNpmCachesSetup.NAME)
-
-    @Suppress("UNNECESSARY_SAFE_CALL", "SAFE_CALL_WILL_CHANGE_NULLABILITY") // TODO: investigate this warning; fixing it breaks integration tests.
-    val storeYarnLockTaskProvider: TaskProvider<out YarnLockCopyTask>?
-        get() = rootProject?.tasks?.withType(YarnLockCopyTask::class.java)?.named(STORE_YARN_LOCK_NAME)
-
-    @Suppress("UNNECESSARY_SAFE_CALL", "SAFE_CALL_WILL_CHANGE_NULLABILITY") // TODO: investigate this warning; fixing it breaks integration tests.
-    val restoreYarnLockTaskProvider: TaskProvider<out YarnLockCopyTask>?
-        get() = rootProject?.tasks?.withType(YarnLockCopyTask::class.java)?.named(RESTORE_YARN_LOCK_NAME)
-
-    val rootPackageDir: File by lazy {
-        rootProject.buildDir.resolve("js")
-    }
+    val rootPackageDir: File = rootProjectBuildDir.resolve("js")
 
     val projectPackagesDir: File
         get() = rootPackageDir.resolve("packages")
@@ -134,15 +77,6 @@ open class NodeJsRootExtension(@Transient val rootProject: Project) : Configurat
             ivyDependency = getIvyDependency(),
             downloadBaseUrl = nodeDownloadBaseUrl
         )
-    }
-
-    internal fun executeSetup() {
-        if (download) {
-            val nodeJsSetupTask = nodeJsSetupTaskProvider.get()
-            nodeJsSetupTask.actions.forEach {
-                it.execute(nodeJsSetupTask)
-            }
-        }
     }
 
     val versions = NpmVersions()
