@@ -127,6 +127,7 @@ class FunctionInlining(
         if (actualCallee.body == null) {
             return expression
         }
+        actualCallee.body?.transformChildrenVoid() // TODO check that this will not break other backends
 
         val parent = allScopes.map { it.irElement }.filterIsInstance<IrDeclarationParent>().lastOrNull()
             ?: allScopes.map { it.irElement }.filterIsInstance<IrDeclaration>().lastOrNull()?.parent

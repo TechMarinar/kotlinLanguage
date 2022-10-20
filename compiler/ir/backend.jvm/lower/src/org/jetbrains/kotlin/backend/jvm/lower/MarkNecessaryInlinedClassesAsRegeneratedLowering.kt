@@ -33,12 +33,22 @@ internal val markNecessaryInlinedClassesAsRegenerated = makeIrModulePhase(
 )
 
 class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendContext) : IrElementTransformerVoid(), FileLoweringPass {
+    private val visited = mutableSetOf<IrFunction>() // TODO how to properly cache this set to avoid redoing work in several files
+
     override fun lower(irFile: IrFile) {
         irFile.transformChildrenVoid()
     }
 
     override fun visitBlock(expression: IrBlock): IrExpression {
         if (expression.wasExplicitlyInlined()) {
+            val marker = expression.statements.first() as IrInlineMarker
+            if (visited.contains(marker.callee)) {
+                return super.visitBlock(expression)
+            }
+            visited += marker.callee
+            // TODO that if callee is located in other module? can we lower it from file lowering?
+            marker.callee.transform(this, null)
+
             val mustBeRegenerated = (expression as IrReturnableBlock).collectDeclarationsThatMustBeRegenerated()
             expression.setUpCorrectAttributesForAllInnerElements(mustBeRegenerated)
             return expression
@@ -221,7 +231,7 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
             override fun visitElement(element: IrElement) {
                 if (element is IrAttributeContainer && element.attributeOwnerIdBeforeInline != null) {
                     // Basically we need to generate SEQUENCE of `element.attributeOwnerIdBeforeInline` and find the original one.
-                    //  But this is not needed because we process all functions in the same order as they were processed by FunctionInlining.
+                    //  But we process nested inlined functions first, so `element.attributeOwnerIdBeforeInline` will be processed already.
                     //  This mean that when we start to precess current container, all inner ones in SEQUENCE will already be processed.
                     element.attributeOwnerId = element.attributeOwnerIdBeforeInline!!.attributeOwnerId
                     element.attributeOwnerIdBeforeInline = null
