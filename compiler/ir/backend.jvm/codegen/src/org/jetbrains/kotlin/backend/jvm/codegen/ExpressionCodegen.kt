@@ -145,22 +145,19 @@ class ExpressionCodegen(
     val smap: SourceMapper,
     val reifiedTypeParametersUsages: ReifiedTypeParametersUsages,
 ) : IrElementVisitor<PromisedValue, BlockInfo>, BaseExpressionCodegen {
-//    private data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker) {
-//        fun isInvokeOnLambda(): Boolean {
-//            return inlineMarker.inlineCall.symbol.owner.name == OperatorNameConventions.INVOKE
-//        }
-//    }
-//
-//    private val localSmapCopiers: MutableList<AdditionalIrInlineData> = mutableListOf()
-    val classToCachedSourceMapper = mutableMapOf<IrDeclaration, SourceMapper>()
-    val localSmapCopiersByClass = mutableListOf<JvmBackendContext.AdditionalIrInlineData>()
+    data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker, val parentSmap: SourceMapper, val tryInfo: TryWithFinallyInfo?) {
+        fun isInvokeOnLambda(): Boolean = inlineMarker.originalExpression != null
+    }
 
-    private fun getLocalSmap(): List<JvmBackendContext.AdditionalIrInlineData> = /*context.*/localSmapCopiersByClass
+    val classToCachedSourceMapper = mutableMapOf<IrDeclaration, SourceMapper>()
+    val localSmapCopiersByClass = mutableListOf<AdditionalIrInlineData>()
+
+    private fun getLocalSmap(): List<AdditionalIrInlineData> = /*context.*/localSmapCopiersByClass
     private fun dropLastLocalSmap() {
         /*context.*/localSmapCopiersByClass.removeLast()
     }
 
-    private fun addToLocalSmap(info: JvmBackendContext.AdditionalIrInlineData) {
+    private fun addToLocalSmap(info: AdditionalIrInlineData) {
         /*context.*/localSmapCopiersByClass.add(info)
     }
 
@@ -219,8 +216,7 @@ class ExpressionCodegen(
 //            val lineNumber = localFileEntry.getLineNumber(offset) + 1
 //            val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
 //            return mappedLineNumber
-            var previousSmap: SourceMapper? = null
-            var previousData: JvmBackendContext.AdditionalIrInlineData? = null
+            var previousData: AdditionalIrInlineData? = null
             var result = -1
             for (inlineData in getLocalSmap().reversed()) {
 //                if (getLocalSmap().last().smap.parent != inlineData.smap.parent) {
@@ -232,13 +228,11 @@ class ExpressionCodegen(
                 if (previousData?.isInvokeOnLambda() == true && inlineData.inlineMarker.callee != previousData.inlineMarker.originalExpression!!.function.parent) {
                     continue
                 }
-                previousSmap = inlineData.smap.parent
                 previousData = inlineData
                 val localFileEntry = inlineData.inlineMarker.callee.fileEntry
                 val lineNumber = if (result == -1) localFileEntry.getLineNumber(offset) + 1 else result
                 val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
                 result = mappedLineNumber
-                // TODO should not evaluate second pass if it is lambda
             }
             return result
         }
@@ -504,6 +498,13 @@ class ExpressionCodegen(
                 }
             }
         }
+    }
+
+    private inline fun stashSmapForGivenTry(tryInfo: TryWithFinallyInfo, block: () -> Unit) {
+        val smapInTryBlock = getLocalSmap().takeLastWhile { it.tryInfo == tryInfo }
+        smapInTryBlock.forEach { _ -> dropLastLocalSmap() }
+        block()
+        smapInTryBlock.forEach { addToLocalSmap(it) }
     }
 
     private fun visitInlinedFunctionBlock(block: IrBlock, data: BlockInfo): PromisedValue {
@@ -1067,7 +1068,8 @@ class ExpressionCodegen(
 //            val classSMAP = typeToCachedSMAP.getOrPut(declaration.originalExpression!!) {
 //                SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings)
 //            }
-            val classSMAP = context.typeToCachedSMAP[context.getLocalClassType(declaration.originalExpression!!)]!!
+            val classSMAP = context.typeToCachedSMAP[context.getLocalClassType(declaration.originalExpression!!)]
+                ?: SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings) // TODO wrong!!!
 
             val sourceMapper = if (localSmaps.isEmpty()) {
                 smap
@@ -1078,10 +1080,11 @@ class ExpressionCodegen(
 //                localSmaps.last().parentSmap
             }
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(
+                AdditionalIrInlineData(
                     SourceMapCopier(sourceMapper, classSMAP, callSite),
                     declaration,
-                    context.getSourceMapper(declaration.callee.parentClassOrNull!!)
+                    context.getSourceMapper(declaration.callee.parentClassOrNull!!),
+                    data.infos.filterIsInstance<TryWithFinallyInfo>().lastOrNull()
                 )
             )
         } else {
@@ -1119,7 +1122,10 @@ class ExpressionCodegen(
             }
             val sourceMapCopier = SourceMapCopier(newSmap, nodeAndSmap.classSMAP, sourcePosition)
             addToLocalSmap(
-                JvmBackendContext.AdditionalIrInlineData(sourceMapCopier, declaration, context.getSourceMapper(key))
+                AdditionalIrInlineData(
+                    sourceMapCopier, declaration, context.getSourceMapper(key),
+                    data.infos.filterIsInstance<TryWithFinallyInfo>().lastOrNull()
+                )
             )
         }
 //
@@ -1585,15 +1591,17 @@ class ExpressionCodegen(
     ) {
         val gapStart = markNewLinkedLabel()
         data.localGapScope(tryWithFinallyInfo) {
-            finallyDepth++
-            if (isFinallyMarkerRequired) {
-                generateFinallyMarker(mv, finallyDepth, true)
+            stashSmapForGivenTry(tryWithFinallyInfo) {
+                finallyDepth++
+                if (isFinallyMarkerRequired) {
+                    generateFinallyMarker(mv, finallyDepth, true)
+                }
+                tryWithFinallyInfo.onExit.accept(this, data).discard()
+                if (isFinallyMarkerRequired) {
+                    generateFinallyMarker(mv, finallyDepth, false)
+                }
+                finallyDepth--
             }
-            tryWithFinallyInfo.onExit.accept(this, data).discard()
-            if (isFinallyMarkerRequired) {
-                generateFinallyMarker(mv, finallyDepth, false)
-            }
-            finallyDepth--
             if (tryCatchBlockEnd != null) {
                 tryWithFinallyInfo.onExit.markLineNumber(startOffset = false)
                 mv.goTo(tryCatchBlockEnd)

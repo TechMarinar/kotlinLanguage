@@ -17,8 +17,6 @@ import org.jetbrains.kotlin.backend.jvm.caches.CollectionStubComputer
 import org.jetbrains.kotlin.backend.jvm.mapping.IrTypeMapper
 import org.jetbrains.kotlin.backend.jvm.mapping.MethodSignatureMapper
 import org.jetbrains.kotlin.codegen.inline.SMAP
-import org.jetbrains.kotlin.codegen.inline.SourceMapCopier
-import org.jetbrains.kotlin.codegen.inline.SourceMapper
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
@@ -92,14 +90,7 @@ class JvmBackendContext(
     lateinit var getIntrinsic: (IrFunctionSymbol) -> IntrinsicMarker?
 
     // TODO doc
-    val classToCachedSourceMapper = mutableMapOf<IrDeclaration, SourceMapper>()
     val typeToCachedSMAP = mutableMapOf<Type, SMAP>()
-
-    val localSmapCopiersByClass = mutableListOf<AdditionalIrInlineData>()
-
-    data class AdditionalIrInlineData(val smap: SourceMapCopier, val inlineMarker: IrInlineMarker, val parentSmap: SourceMapper) {
-        fun isInvokeOnLambda(): Boolean = inlineMarker.originalExpression != null
-    }
 
     private val localClassType = ConcurrentHashMap<IrAttributeContainer, Type>()
 
