@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlined
 import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.lower.BOUND_RECEIVER_PARAMETER
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
+import org.jetbrains.kotlin.backend.common.lower.inline.InlinedFunction
 import org.jetbrains.kotlin.backend.jvm.*
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IntrinsicMethod
 import org.jetbrains.kotlin.backend.jvm.intrinsics.JavaClassProperty
@@ -524,8 +525,8 @@ class ExpressionCodegen(
             // TODO DefaultLambda
             if (/*(info is DefaultLambda != overrideLineNumber) &&*/ currentLineNumber >= 0 && firstLine == currentLineNumber) {
                 val label = Label()
-                val fakeLineNumber =
-                    getLocalSmap().last().smap.parent.mapSyntheticLineNumber(SourceMapper.LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER)
+                val fakeLineNumber = (getLocalSmap().lastOrNull()?.smap?.parent ?: smap)
+                    .mapSyntheticLineNumber(SourceMapper.LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER)
                 mv.visitLabel(label)
                 mv.visitLineNumber(fakeLineNumber, label)
             }
@@ -542,8 +543,8 @@ class ExpressionCodegen(
 
         val callee = marker.callee
         val calleeBody = callee.body
-        // TODO start_1: reuse code
         if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
+            // TODO start_1: reuse code
             // Allow setting a breakpoint on the closing brace of a void-returning function
             // without an explicit return, or the `class Something(` line of a primary constructor.
             if (callee.origin != JvmLoweredDeclarationOrigin.CLASS_STATIC_INITIALIZER) {
@@ -554,7 +555,7 @@ class ExpressionCodegen(
         // TODO end_1
 
         if (marker.originalExpression == null) {
-            // TODO start_3: reuse from visitReturn
+            // TODO start_3: reuse from visitReturn and see ReturnableBlockLowering
             val lastStatement = marker.callee.body!!.statements.last()
             if (lastStatement is IrReturn && lastStatement.returnTargetSymbol == marker.callee.symbol) {
                 block.statements.last().markLineNumber(startOffset = true)
@@ -1453,6 +1454,10 @@ class ExpressionCodegen(
         mv.nop()
         val endLabel = Label()
         val stackElement = unwindBlockStack(endLabel, data) { it.loop == jump.loop }
+        if (jump.loop.origin is InlinedFunction) {
+            // There must be another line number because this jump is actually return from inlined function
+            jump.markLineNumber(startOffset = true)
+        }
         if (stackElement == null) {
             generateGlobalReturnFlagIfPossible(jump, jump.loop.nonLocalReturnLabel(jump is IrBreak))
             mv.areturn(Type.VOID_TYPE)
