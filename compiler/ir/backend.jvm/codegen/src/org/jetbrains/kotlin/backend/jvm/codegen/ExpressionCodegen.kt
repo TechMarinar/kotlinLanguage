@@ -1064,13 +1064,13 @@ class ExpressionCodegen(
 //
         val localSmaps = getLocalSmap()
         if (declaration.originalExpression != null) {
-            val callSite = null
-//            val callSite = null//if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
+//            val callSite = null
+            val callSite = if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
 //            val classSMAP = typeToCachedSMAP.getOrPut(declaration.originalExpression!!) {
 //                SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings)
 //            }
-            val classSMAP = context.typeToCachedSMAP[context.getLocalClassType(declaration.originalExpression!!)]
-                ?: SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings) // TODO wrong!!!
+            val classSMAP = context.typeToCachedSMAP[context.getLocalClassType(declaration.originalExpression!!)]!!
+                //?: SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings) // TODO wrong!!!
 
             val sourceMapper = if (localSmaps.isEmpty()) {
                 smap
@@ -1093,16 +1093,18 @@ class ExpressionCodegen(
                 .filterIsInstance<IrSimpleFunction>()
                 .filter { it.attributeOwnerId == (declaration.callee as IrSimpleFunction).attributeOwnerId }
 //                .filter { if (!inlineCall.hasDefaultArgs()) true else it.name.asString().endsWith("\$default") }
-                .first().let { actualCallee ->
+                .map { actualCallee ->
                     val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
                     val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
                     val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
                     (callGenerator as InlineCodegen<*>).compileInline()
-                }
+                }.first()
+            // there can be several functions with given attributeOwnerId (for example default one)
+            // we need to compile them all (to cache smap) but we are interested only in single smap for now
 
             val key = declaration.callee.parentClassOrNull!!
             val newSmap = if (localSmaps.isEmpty()) {
-                /*context.*/classToCachedSourceMapper[declaration.inlinedAt] = smap
+//                /*context.*/classToCachedSourceMapper[declaration.inlinedAt] = smap
                 smap
             } else {
 //                val anotherSmap = context.getSourceMapper(key)
@@ -1128,6 +1130,12 @@ class ExpressionCodegen(
                     data.infos.filterIsInstance<TryWithFinallyInfo>().lastOrNull()
                 )
             )
+
+            if (inlineCall.hasDefaultArgs()) {
+                // $default function has first LN pointing to original callee
+                declaration.callee.markLineNumber(startOffset = true)
+                mv.nop()
+            }
         }
 //
 //        if (inlineCall.hasDefaultArgs()) {
@@ -1147,6 +1155,9 @@ class ExpressionCodegen(
             val childCodegen = ClassCodegen.getOrCreate(declaration, context, enclosingFunctionForLocalObjects)
             childCodegen.generate()
             closureReifiedMarkers[declaration] = childCodegen.reifiedTypeParametersUsages
+            if (irFunction.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER) {
+                context.typeToCachedSMAP[childCodegen.type] = SMAP(childCodegen.smap.resultMappings)
+            }
         }
         return unitValue
     }
