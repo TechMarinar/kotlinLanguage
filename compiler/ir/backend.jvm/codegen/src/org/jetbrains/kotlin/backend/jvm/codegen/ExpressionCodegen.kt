@@ -1070,7 +1070,6 @@ class ExpressionCodegen(
 //                SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings)
 //            }
             val classSMAP = context.typeToCachedSMAP[context.getLocalClassType(declaration.originalExpression!!)]!!
-                //?: SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings) // TODO wrong!!!
 
             val sourceMapper = if (localSmaps.isEmpty()) {
                 smap
@@ -1155,7 +1154,7 @@ class ExpressionCodegen(
             val childCodegen = ClassCodegen.getOrCreate(declaration, context, enclosingFunctionForLocalObjects)
             childCodegen.generate()
             closureReifiedMarkers[declaration] = childCodegen.reifiedTypeParametersUsages
-            if (irFunction.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER) {
+            if (irFunction.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER || declaration.origin == JvmLoweredDeclarationOrigin.LAMBDA_IMPL) {
                 context.typeToCachedSMAP[childCodegen.type] = SMAP(childCodegen.smap.resultMappings)
             }
         }
