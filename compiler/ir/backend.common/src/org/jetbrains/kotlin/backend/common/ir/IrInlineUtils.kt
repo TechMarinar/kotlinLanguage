@@ -153,7 +153,7 @@ fun IrExpression.getOriginalStatementsFromInlinedBlock(): List<IrStatement> {
 
 fun IrExpression.putStatementsBeforeActualInline(statements: List<IrStatement>) {
     this.checkForLoweredInlinedFunctionOrThrowException()
-    ((this as IrBlock).statements[1] as IrComposite).statements.addAll(statements)
+    ((this as IrBlock).statements[1] as IrComposite).statements.addAll(0, statements)
 }
 
 fun IrExpression.putStatementsInFrontOfInlinedFunction(statements: List<IrStatement>) {
