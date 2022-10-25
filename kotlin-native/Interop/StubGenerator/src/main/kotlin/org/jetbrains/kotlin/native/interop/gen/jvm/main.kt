@@ -390,7 +390,7 @@ private fun processCLib(flavor: KotlinPlatform, cinteropArguments: CInteropArgum
             // Note that the output bitcode contains the source file path, which can lead to non-deterministc builds (see KT-54284).
             // The source file is passed in via stdin to ensure the output library is deterministic.
             val compilerCmd = arrayOf(compiler, *compilerArgs,
-                    "-emit-llvm", "-x", library.language.clangLanguageName, "-c", "-", "-o", outLib.absolutePath)
+                    "-emit-llvm", "-x", library.language.clangLanguageName, "-c", "-", "-o", outLib.absolutePath, "-Xclang", "-detailed-preprocessing-record")
             runCmd(compilerCmd, verbose, redirectInputFile = File(outCFile.absolutePath))
             outLib.absolutePath
         }
@@ -498,9 +498,16 @@ internal fun buildNativeLibrary(
         addAll(getCompilerFlagsForVfsOverlay(arguments.headerFilterPrefix.toTypedArray(), def))
     }
 
+    // Expanding macros such as __FILE__ or __TIME__ exposes arbitrary generated filenames and timestamps from the compiler pipeline
+    // which are not useful for interop though makes the klib generation non-deterministic. See KT-54284
+    // This macro redefinition just maps to their name in the properties available from Kotlin.
+    val predefinedMacrosRedefinitions = predefinedMacros.map {
+        "#define $it \"$it\""
+    }
+
     val compilation = CompilationImpl(
             includes = headerFiles,
-            additionalPreambleLines = def.defHeaderLines,
+            additionalPreambleLines = def.defHeaderLines + predefinedMacrosRedefinitions,
             compilerArgs = defaultCompilerArgs(language) + compilerOpts + tool.platformCompilerOpts,
             language = language
     )

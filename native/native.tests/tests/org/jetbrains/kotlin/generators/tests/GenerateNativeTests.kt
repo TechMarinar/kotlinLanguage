@@ -7,10 +7,7 @@ package org.jetbrains.kotlin.generators.tests
 
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.model.annotation
-import org.jetbrains.kotlin.konan.blackboxtest.AbstractNativeBlackBoxTest
-import org.jetbrains.kotlin.konan.blackboxtest.AbstractNativeCodegenBoxTest
-import org.jetbrains.kotlin.konan.blackboxtest.AbstractNativeKlibABITest
-import org.jetbrains.kotlin.konan.blackboxtest.AbstractNativeKlibBinaryCompatibilityTest
+import org.jetbrains.kotlin.konan.blackboxtest.*
 import org.jetbrains.kotlin.konan.blackboxtest.support.group.UseExtTestCaseGroupProvider
 import org.jetbrains.kotlin.konan.blackboxtest.support.group.UseStandardTestCaseGroupProvider
 import org.jetbrains.kotlin.test.TargetBackend
@@ -57,6 +54,31 @@ fun main() {
                 suiteTestClassName = "KlibBinaryCompatibilityTestGenerated"
             ) {
                 model("binaryCompatibility/klibEvolution", recursive = false)
+            }
+        }
+
+        // CInterop tests.
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeInteropIndexerFModulesTest>(
+                suiteTestClassName = "InteropIndexerFModulesTestGenerated"
+            ) {
+                model("Interop/Indexer/simple/simpleDefs", pattern = "^([^_](.+))$", recursive = false)
+                model("Interop/Indexer/framework/frameworkDefs", pattern = "^([^_](.+))$", recursive = false)
+                model("Interop/Indexer/framework.macros/macrosDefs", pattern = "^([^_](.+))$", recursive = false)
+                model("Interop/Indexer/builtins/builtinsDefs", pattern = "^([^_](.+))$", recursive = false)
+            }
+            testClass<AbstractNativeInteropIndexerNoFModulesTest>(
+                suiteTestClassName = "InteropIndexerNoFModulesTestGenerated"
+            ) {
+                model("Interop/Indexer/simple/simpleDefs", pattern = "^([^_](.+))$", recursive = false)
+                model("Interop/Indexer/framework/frameworkDefs", pattern = "^([^_](.+))$", recursive = false)
+                model("Interop/Indexer/framework.macros/macrosDefs", pattern = "^([^_](.+))$", recursive = false)
+                model("Interop/Indexer/builtins/builtinsDefs", pattern = "^([^_](.+))$", recursive = false)
+            }
+            testClass<AbstractNativeInteropIndexerKT39120Test>(
+                suiteTestClassName = "InteropIndexerKT39120TestGenerated"
+            ) {
+                model("Interop/Indexer/KT-39120/defs", pattern = "^([^_](.+))$", recursive = false)
             }
         }
     }

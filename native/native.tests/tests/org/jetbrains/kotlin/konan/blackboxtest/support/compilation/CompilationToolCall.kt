@@ -10,13 +10,25 @@ import org.jetbrains.kotlin.cli.common.messages.*
 import org.jetbrains.kotlin.compilerRunner.OutputItemsCollectorImpl
 import org.jetbrains.kotlin.compilerRunner.processCompilerOutput
 import org.jetbrains.kotlin.config.Services
+import org.jetbrains.kotlin.konan.blackboxtest.support.settings.KotlinNativeTargets
+import org.jetbrains.kotlin.native.interop.gen.jvm.InternalInteropOptions
+import org.jetbrains.kotlin.native.interop.gen.jvm.interop
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.PrintStream
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
+import org.jetbrains.kotlin.konan.file.File as KonanFile
 
-internal fun callCompiler(compilerArgs: Array<String>, kotlinNativeClassLoader: ClassLoader): CompilerCallResult {
+internal data class CompilationToolCallResult(
+    val exitCode: ExitCode,
+    val toolOutput: String,
+    val toolOutputHasErrors: Boolean,
+    val duration: Duration
+)
+
+internal fun callCompiler(compilerArgs: Array<String>, kotlinNativeClassLoader: ClassLoader): CompilationToolCallResult {
     val compilerXmlOutput: ByteArrayOutputStream
     val exitCode: ExitCode
 
@@ -60,12 +72,43 @@ internal fun callCompiler(compilerArgs: Array<String>, kotlinNativeClassLoader: 
         compilerOutput = outputStream.toString(Charsets.UTF_8.name())
     }
 
-    return CompilerCallResult(exitCode, compilerOutput, messageCollector.hasErrors(), duration)
+    return CompilationToolCallResult(exitCode, compilerOutput, messageCollector.hasErrors(), duration)
 }
 
-internal data class CompilerCallResult(
-    val exitCode: ExitCode,
-    val compilerOutput: String,
-    val compilerOutputHasErrors: Boolean,
-    val duration: Duration
-)
+internal fun invokeCInterop(
+    targets: KotlinNativeTargets,
+    inputDef: File,
+    outputLib: File,
+    extraArgs: Array<String>
+): CompilationToolCallResult {
+    val args = arrayOf("-o", outputLib.canonicalPath, "-def", inputDef.canonicalPath, "-no-default-libs", "-target", targets.testTarget.name)
+    val buildDir = KonanFile("${outputLib.canonicalPath}-build")
+    val generatedDir = KonanFile(buildDir, "kotlin")
+    val nativesDir = KonanFile(buildDir, "natives")
+    val manifest = KonanFile(buildDir, "manifest.properties")
+    val cstubsName = "cstubs"
+    val possibleSubsequentCompilerInvocationArgs: Array<String>?
+
+    @OptIn(ExperimentalTime::class)
+    val duration = measureTime {
+        possibleSubsequentCompilerInvocationArgs = interop(
+            "native",
+            args + extraArgs,
+            InternalInteropOptions(generatedDir.absolutePath, nativesDir.absolutePath, manifest.path, cstubsName),
+            false
+        )
+    }
+    // In currently tested usecases, cinterop must return no args for the subsequent compiler call
+    return if (possibleSubsequentCompilerInvocationArgs == null) {
+        // TODO There is no technical ability to extract `toolOutput` and `toolOutputHasErrors`
+        //      from C-interop tool invocation at the moment. This should be fixed in the future.
+        CompilationToolCallResult(exitCode = ExitCode.OK, toolOutput = "", toolOutputHasErrors = false, duration)
+    } else {
+        CompilationToolCallResult(
+            exitCode = ExitCode.COMPILATION_ERROR,
+            toolOutput = possibleSubsequentCompilerInvocationArgs.joinToString(" "),
+            toolOutputHasErrors = true,
+            duration
+        )
+    }
+}
