@@ -5,7 +5,8 @@
 
 package org.jetbrains.kotlin.backend.jvm.codegen
 
-import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.getDefaultAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.getNonDefaultAdditionalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.lower.BOUND_RECEIVER_PARAMETER
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
@@ -512,7 +513,10 @@ class ExpressionCodegen(
         val marker = block.statements.first() as IrInlineMarker
         val lineNumberForOffset = getLineNumberForOffset(marker.inlineCall.startOffset)
 
-        block.getAdditionalStatementsFromInlinedBlock().forEach { exp ->
+        marker.inlineCall.markLineNumber(true)
+        mv.nop()
+
+        block.getNonDefaultAdditionalStatementsFromInlinedBlock().forEach { exp ->
             exp.accept(this, data).discard()
         }
 
@@ -535,6 +539,10 @@ class ExpressionCodegen(
 
         // TODO create smap for defaults
         visitInlineMarker(marker, data)
+
+        block.getDefaultAdditionalStatementsFromInlinedBlock().forEach { exp ->
+            exp.accept(this, data).discard()
+        }
 
         val result = block.getOriginalStatementsFromInlinedBlock().fold(unitValue) { prev, exp ->
             prev.discard()
@@ -1059,25 +1067,16 @@ class ExpressionCodegen(
     override fun visitInlineMarker(declaration: IrInlineMarker, data: BlockInfo): PromisedValue {
         val inlineCall = declaration.inlineCall
 
-        inlineCall.markLineNumber(true)
-//        mv.nop()
-//
         val localSmaps = getLocalSmap()
         if (declaration.originalExpression != null) {
-//            val callSite = null
-            val callSite = if (inlineCall.isInvokeOnDefaultArg(declaration.callee)) getLocalSmap().lastOrNull()?.smap?.callSite else null
-//            val classSMAP = typeToCachedSMAP.getOrPut(declaration.originalExpression!!) {
-//                SMAP(context.getSourceMapper(declaration.callee.parentClassOrNull!!).resultMappings)
-//            }
+            val callSite = getLocalSmap().lastOrNull()?.smap?.callSite?.takeIf { inlineCall.isInvokeOnDefaultArg(declaration.callee) }
             val classSMAP = context.typeToCachedSMAP[context.getLocalClassType(declaration.originalExpression!!)]!!
 
             val sourceMapper = if (localSmaps.isEmpty()) {
                 smap
             } else {
-//                context.classToCachedSourceMapper[declaration.inlinedAt.parentClassOrNull!!]!!
                 localSmaps.reversed().firstOrNull { it.inlineMarker.inlinedAt == declaration.originalExpression!!.function.parent }?.smap?.parent
                     ?: localSmaps.last().smap.parent
-//                localSmaps.last().parentSmap
             }
             addToLocalSmap(
                 AdditionalIrInlineData(
@@ -1088,31 +1087,23 @@ class ExpressionCodegen(
                 )
             )
         } else {
-            val nodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
+            val allNodeAndSmap = declaration.callee.getClassWithDeclaredFunction()!!.declarations
                 .filterIsInstance<IrSimpleFunction>()
                 .filter { it.attributeOwnerId == (declaration.callee as IrSimpleFunction).attributeOwnerId }
-//                .filter { if (!inlineCall.hasDefaultArgs()) true else it.name.asString().endsWith("\$default") }
-                .map { actualCallee ->
-                    val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
-                    val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
-                    val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
-                    (callGenerator as InlineCodegen<*>).compileInline()
-                }.first()
+                .filter { !inlineCall.hasDefaultArgs() || it.name.asString().endsWith("\$default") }
+            val nodeAndSmap = allNodeAndSmap.first().let { actualCallee ->
+                val callToActualCallee = IrCallImpl.fromSymbolOwner(inlineCall.startOffset, inlineCall.endOffset, inlineCall.type, actualCallee.symbol)
+                val callable = methodSignatureMapper.mapToCallableMethod(callToActualCallee, irFunction)
+                val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
+                (callGenerator as InlineCodegen<*>).compileInline()
+            }
             // there can be several functions with given attributeOwnerId (for example default one)
             // we need to compile them all (to cache smap) but we are interested only in single smap for now
 
             val key = declaration.callee.parentClassOrNull!!
             val newSmap = if (localSmaps.isEmpty()) {
-//                /*context.*/classToCachedSourceMapper[declaration.inlinedAt] = smap
                 smap
             } else {
-//                val anotherSmap = context.getSourceMapper(key)
-//                context.classToCachedSourceMapper[declaration.callee] = anotherSmap
-//                anotherSmap
-//                /*context.*/classToCachedSourceMapper.getOrPut(declaration.inlinedAt) {
-//                    context.getSourceMapper(key)
-//                }
-//                context.getSourceMapper(key)
                 localSmaps.last().parentSmap
             }
             val sourcePosition = let {
@@ -1130,11 +1121,11 @@ class ExpressionCodegen(
                 )
             )
 
-            if (inlineCall.hasDefaultArgs()) {
-                // $default function has first LN pointing to original callee
-                declaration.callee.markLineNumber(startOffset = true)
-                mv.nop()
-            }
+        }
+        if (inlineCall.hasDefaultArgs()) {
+            // $default function has first LN pointing to original callee
+            declaration.callee.markLineNumber(startOffset = true)
+            mv.nop()
         }
 //
 //        if (inlineCall.hasDefaultArgs()) {

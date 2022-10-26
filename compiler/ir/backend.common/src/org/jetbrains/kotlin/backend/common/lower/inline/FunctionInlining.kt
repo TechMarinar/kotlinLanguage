@@ -511,7 +511,8 @@ class FunctionInlining(
 
         private inner class ParameterToArgument(
             val parameter: IrValueParameter,
-            val argumentExpression: IrExpression
+            val argumentExpression: IrExpression,
+            val isDefaultArg: Boolean = false
         ) {
 
             // TODO check that `getOriginalParameter` don't break other backends
@@ -609,7 +610,8 @@ class FunctionInlining(
                     parameter.defaultValue != null -> {  // There is no argument - try default value.
                         parametersWithDefaultToArgument += ParameterToArgument(
                             parameter = parameter,
-                            argumentExpression = parameter.defaultValue!!.expression
+                            argumentExpression = parameter.defaultValue!!.expression,
+                            isDefaultArg = true
                         )
                     }
 
@@ -688,6 +690,7 @@ class FunctionInlining(
         private fun evaluateArguments(callSite: IrFunctionAccessExpression, callee: IrFunction): IrComposite {
             val arguments = buildParameterToArgument(callSite, callee)
             val evaluationStatements = mutableListOf<IrVariable>()
+            val evaluationStatementsFromDefault = mutableListOf<IrVariable>()
             val substitutor = ParameterSubstitutor()
             arguments.forEach { argument ->
                 /*
@@ -729,12 +732,20 @@ class FunctionInlining(
                             isMutable = false
                         )
 
-                    evaluationStatements.add(newVariable)
+                    if (argument.isDefaultArg) evaluationStatementsFromDefault.add(newVariable) else evaluationStatements.add(newVariable)
                     substituteMap[argument.parameter] = IrGetValueWithoutLocation(newVariable.symbol)
                 }
             }
-            return IrCompositeImpl(
+            val blockForNewStatements = IrCompositeImpl(
                 callSite.startOffset, callSite.endOffset, context.irBuiltIns.unitType, null, statements = evaluationStatements
+            )
+            val blockForNewStatementsFromDefault = IrCompositeImpl(
+                callSite.startOffset, callSite.endOffset, context.irBuiltIns.unitType, null, statements = evaluationStatementsFromDefault
+            )
+            return IrCompositeImpl(
+                callSite.startOffset, callSite.endOffset, context.irBuiltIns.unitType, null, statements = listOf(
+                    blockForNewStatements, blockForNewStatementsFromDefault,
+                )
             )
         }
     }

@@ -141,9 +141,27 @@ fun IrExpression.wasExplicitlyInlined(): Boolean {
     return marker.originalExpression == null
 }
 
+fun IrExpression.wasInlinedFromLambda(): Boolean {
+    if (this !is IrBlock) return false
+    val marker = this.statements.firstOrNull() as? IrInlineMarker ?: return false
+    return marker.originalExpression != null
+}
+
 fun IrExpression.getAdditionalStatementsFromInlinedBlock(): List<IrStatement> {
     this.checkForLoweredInlinedFunctionOrThrowException()
-    return ((this as IrBlock).statements[1] as IrComposite).statements
+    return ((this as IrBlock).statements[1] as IrComposite).statements.flatMap { (it as IrComposite).statements }
+}
+
+fun IrExpression.getNonDefaultAdditionalStatementsFromInlinedBlock(): List<IrStatement> {
+    this.checkForLoweredInlinedFunctionOrThrowException()
+    val allAdditionalStatements = ((this as IrBlock).statements[1] as IrComposite).statements
+    return (allAdditionalStatements[0] as IrComposite).statements
+}
+
+fun IrExpression.getDefaultAdditionalStatementsFromInlinedBlock(): List<IrStatement> {
+    this.checkForLoweredInlinedFunctionOrThrowException()
+    val allAdditionalStatements = ((this as IrBlock).statements[1] as IrComposite).statements
+    return (allAdditionalStatements[1] as IrComposite).statements
 }
 
 fun IrExpression.getOriginalStatementsFromInlinedBlock(): List<IrStatement> {
@@ -153,7 +171,8 @@ fun IrExpression.getOriginalStatementsFromInlinedBlock(): List<IrStatement> {
 
 fun IrExpression.putStatementsBeforeActualInline(statements: List<IrStatement>) {
     this.checkForLoweredInlinedFunctionOrThrowException()
-    ((this as IrBlock).statements[1] as IrComposite).statements.addAll(0, statements)
+    val additionalStatements = ((this as IrBlock).statements[1] as IrComposite).statements
+    (additionalStatements[0] as IrComposite).statements.addAll(0, statements)
 }
 
 fun IrExpression.putStatementsInFrontOfInlinedFunction(statements: List<IrStatement>) {
