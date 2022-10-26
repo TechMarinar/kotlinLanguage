@@ -38,28 +38,28 @@ open class FirDependenciesSymbolProviderImpl(session: FirSession) : FirDependenc
         (moduleData.dependencies + moduleData.friendDependencies + moduleData.dependsOnDependencies)
             .mapNotNull { session.sessionProvider?.getSession(it) }
             .map { it.symbolProvider }
-            .forEach { it.loadProvidersTo(result, visited, 0) }
+            .forEach { it.loadProvidersTo(result, visited, isRoot = true) }
         result.sortedBy { it.session.kind }
     }
 
     private fun FirSymbolProvider.loadProvidersTo(
         result: MutableList<FirSymbolProvider>,
         visited: MutableSet<FirSymbolProvider>,
-        level: Int
+        isRoot: Boolean
     ) {
         if (!visited.add(this)) return
         when {
             this is FirDependenciesSymbolProviderImpl -> {
                 for (provider in dependencyProviders) {
-                    provider.loadProvidersTo(result, visited, level + 1)
+                    provider.loadProvidersTo(result, visited, isRoot = false)
                 }
             }
             this is FirCompositeSymbolProvider -> {
                 for (provider in providers) {
-                    provider.loadProvidersTo(result, visited, level)
+                    provider.loadProvidersTo(result, visited, isRoot = isRoot)
                 }
             }
-            level == 0 || session.kind == FirSession.Kind.Source -> {
+            isRoot || session.kind == FirSession.Kind.Source -> {
                 result.add(this)
             }
         }
