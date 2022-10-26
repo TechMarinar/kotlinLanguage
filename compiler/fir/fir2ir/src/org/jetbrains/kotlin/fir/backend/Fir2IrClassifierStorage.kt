@@ -39,7 +39,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.runUnless
 
 class Fir2IrClassifierStorage(
     private val components: Fir2IrComponents,
-    dependentStorages: List<Fir2IrClassifierStorage> = emptyList()
+    dependentStorages: List<Fir2IrClassifierStorage>
 ) : Fir2IrComponents by components {
     private val firProvider = session.firProvider
 
