@@ -183,21 +183,21 @@ object FirKotlinToJvmBytecodeCompiler {
         if (commonFirOutput != null) {
             val commonIrOutput = commonFirOutput.convertToIr(fir2IrExtensions, irGenerationExtensions, linkViaSignatures = true)
             platformIrOutput = platformFirOutput.convertToIr(
-                fir2IrExtensions, irGenerationExtensions,
+                fir2IrExtensions,
+                irGenerationExtensions,
                 linkViaSignatures = true,
                 dependentComponents = listOf(commonIrOutput.components)
             )
-            IrActualizer.actualize(platformIrOutput.irModuleFragment, listOf(commonIrOutput.irModuleFragment))
+            IrActualizer.actualize(
+                platformIrOutput.irModuleFragment,
+                platformIrOutput.components.symbolTable,
+                listOf(commonIrOutput.irModuleFragment)
+            )
         } else {
-            val commonFir = platformFirOutput.session.moduleData.dependsOnDependencies
-                .map { it.session }
-                .filter { it.kind == FirSession.Kind.Source }
-                .flatMap { (it.firProvider as FirProviderImpl).getAllFirFiles() }
             platformIrOutput = platformFirOutput.convertToIr(
                 fir2IrExtensions,
                 irGenerationExtensions,
-                linkViaSignatures = moduleConfiguration.getBoolean(JVMConfigurationKeys.LINK_VIA_SIGNATURES),
-                extraFir = commonFir
+                linkViaSignatures = moduleConfiguration.getBoolean(JVMConfigurationKeys.LINK_VIA_SIGNATURES)
             )
         }
 

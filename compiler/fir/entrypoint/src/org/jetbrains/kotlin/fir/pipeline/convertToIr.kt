@@ -8,7 +8,10 @@ package org.jetbrains.kotlin.fir.pipeline
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.serialization.JvmIdSignatureDescriptor
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.backend.*
+import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
+import org.jetbrains.kotlin.fir.backend.Fir2IrConverter
+import org.jetbrains.kotlin.fir.backend.Fir2IrExtensions
+import org.jetbrains.kotlin.fir.backend.Fir2IrResult
 import org.jetbrains.kotlin.fir.backend.jvm.Fir2IrJvmSpecialAnnotationSymbolProvider
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmKotlinMangler
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmVisibilityConverter
@@ -34,13 +37,12 @@ fun ModuleCompilerAnalyzedOutput.convertToIr(
     fir2IrExtensions: Fir2IrExtensions,
     irGeneratorExtensions: Collection<IrGenerationExtension>,
     linkViaSignatures: Boolean,
-    extraFir: List<FirFile> = emptyList(),
     dependentComponents: List<Fir2IrComponents> = emptyList()
 ): Fir2IrResult {
     if (linkViaSignatures) {
         val signaturer = JvmIdSignatureDescriptor(mangler = JvmDescriptorMangler(mainDetector = null))
         return Fir2IrConverter.createModuleFragmentWithSignaturesIfNeeded(
-            session, scopeSession, fir + extraFir,
+            session, scopeSession, fir,
             session.languageVersionSettings, signaturer, fir2IrExtensions,
             FirJvmKotlinMangler(session),
             JvmIrMangler, IrFactoryImpl, FirJvmVisibilityConverter,
@@ -50,7 +52,7 @@ fun ModuleCompilerAnalyzedOutput.convertToIr(
         )
     } else {
         return Fir2IrConverter.createModuleFragmentWithoutSignatures(
-            session, scopeSession, fir + extraFir,
+            session, scopeSession, fir,
             session.languageVersionSettings, fir2IrExtensions,
             FirJvmKotlinMangler(session),
             JvmIrMangler, IrFactoryImpl, FirJvmVisibilityConverter,
