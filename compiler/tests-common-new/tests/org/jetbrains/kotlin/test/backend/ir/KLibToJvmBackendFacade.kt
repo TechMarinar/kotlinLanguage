@@ -48,7 +48,7 @@ class KLibToJvmBackendFacade(
         }
 
         loadDependencyFragments(module, 0)
-        IrActualizer.actualize(inputArtifact.backendInput.irModuleFragment, dependencyFragments)
+        IrActualizer.actualize(inputArtifact.backendInput.irModuleFragment, inputArtifact.backendInput.symbolTable, dependencyFragments)
 
         return jvmFacadeHelper.transform(
             inputArtifact.state,

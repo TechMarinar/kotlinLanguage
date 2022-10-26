@@ -39,6 +39,8 @@ sealed class IdSignature {
 
     abstract fun render(): String
 
+    fun isExpect(): Boolean = Flags.IS_EXPECT.decode(flags())
+
     fun Flags.test(): Boolean = decode(flags())
 
     protected open fun flags(): Long = 0

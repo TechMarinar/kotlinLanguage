@@ -9,75 +9,76 @@ import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
-import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
-import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.util.IdSignature
+import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 
-class IrActualizerTransformer(val actualMembers: Map<IdSignature, IrSymbol>) : IrElementTransformerVoid() {
+class IrActualizerTransformer(private val platformSymbolTable: SymbolTable) : IrElementTransformerVoid() {
+    companion object {
+        private val notExpectMask = IdSignature.Flags.IS_EXPECT.encode(true).inv()
+    }
+
     override fun visitCall(expression: IrCall): IrExpression {
-        val keySignature = when (val signature = expression.symbol.signature) {
+        val result = visitFunctionAccess(expression) as IrCall
+        val actualSymbol = when (val signature = expression.symbol.signature) {
             is IdSignature.AccessorSignature -> {
-                val propertySignature = signature.propertySignature as? IdSignature.CommonSignature
-                if (propertySignature != null) {
-                    IdSignature.CommonSignature(
-                        propertySignature.packageFqName,
-                        propertySignature.declarationFqName, propertySignature.id, 0
-                    )
-                } else {
-                    null
+                val propertySignature = unifySignatureIfExpect(signature.propertySignature as? IdSignature.CommonSignature)
+                propertySignature?.let {
+                    val propertySymbol = platformSymbolTable.referencePropertyIfAny(it) ?: reportMissingActual(it)
+                    val owner = propertySymbol.owner
+                    if (expression.origin == IrStatementOrigin.GET_PROPERTY) {
+                        owner.getter!!.symbol
+                    } else {
+                        owner.setter!!.symbol
+                    }
                 }
             }
             is IdSignature.CommonSignature -> {
-                if (expression.symbol.owner.isExpect)
-                    IdSignature.CommonSignature(signature.packageFqName, signature.declarationFqName, signature.id, 0)
-                else
-                    signature
+                val functionSignature = unifySignatureIfExpect(signature)
+                functionSignature?.let {
+                    platformSymbolTable.referenceSimpleFunctionIfAny(it) ?: reportMissingActual(it)
+                }
             }
-            else -> {
-                null
-            }
+            else -> null
         }
-        if (keySignature != null) {
-            val actualMember = actualMembers[keySignature]
-            val actualSymbol = if (actualMember is IrSimpleFunctionSymbol) {
-                actualMember
-            } else if (actualMember is IrPropertySymbol) {
-                val owner = actualMember.owner
-                if (expression.origin == IrStatementOrigin.GET_PROPERTY) {
-                    owner.getter!!.symbol
-                } else {
-                    owner.setter!!.symbol
+
+        return actualSymbol?.let {
+            IrCallImpl(
+                result.startOffset,
+                result.endOffset,
+                result.type,
+                actualSymbol,
+                result.typeArgumentsCount,
+                result.valueArgumentsCount,
+                result.origin,
+                result.superQualifierSymbol
+            ).also {
+                it.extensionReceiver = result.extensionReceiver
+                it.dispatchReceiver = result.dispatchReceiver
+                for (index in 0 until result.valueArgumentsCount) {
+                    it.putValueArgument(index, result.getValueArgument(index))
                 }
-            } else {
-                null
+                for (index in 0 until result.typeArgumentsCount) {
+                    it.putTypeArgument(index, result.getTypeArgument(index))
+                }
             }
-            if (actualSymbol != null) {
-                val result = IrCallImpl(
-                    expression.startOffset,
-                    expression.endOffset,
-                    expression.type,
-                    actualSymbol,
-                    expression.typeArgumentsCount,
-                    expression.valueArgumentsCount,
-                    expression.origin,
-                    expression.superQualifierSymbol
-                )
-                result.contextReceiversCount = expression.contextReceiversCount
-                result.extensionReceiver = expression.extensionReceiver?.let { visitExpression(it) }
-                result.dispatchReceiver = expression.dispatchReceiver?.let { visitExpression(it) }
-                for (index in 0 until expression.valueArgumentsCount) {
-                    val valueArgument = expression.getValueArgument(index)?.let { visitExpression(it) }
-                    result.putValueArgument(index, valueArgument)
-                }
-                for (index in 0 until expression.typeArgumentsCount) {
-                    val typeArgument = expression.getTypeArgument(index)
-                    result.putTypeArgument(index, typeArgument)
-                }
-                return result
-            }
-        }
-        return super.visitCall(expression)
+        } ?: result
+    }
+
+    private fun unifySignatureIfExpect(signature: IdSignature.CommonSignature?): IdSignature.CommonSignature? {
+        return if (signature?.isExpect() == true)
+            IdSignature.CommonSignature(
+                signature.packageFqName,
+                signature.declarationFqName,
+                signature.id,
+                signature.mask and notExpectMask
+            )
+        else
+            null
+    }
+
+    private fun reportMissingActual(signature: IdSignature): Nothing {
+        // TODO: Probably diagnostics should be reported here
+        error("Expect member $signature should have corresponding actual member")
     }
 }
