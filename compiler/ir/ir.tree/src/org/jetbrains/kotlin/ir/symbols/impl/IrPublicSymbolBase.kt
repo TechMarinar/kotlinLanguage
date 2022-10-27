@@ -52,13 +52,11 @@ abstract class IrBindablePublicSymbolBase<out D : DeclarationDescriptor, B : IrS
         get() = _owner ?: throw IllegalStateException("Symbol for $signature is unbound")
 
     override fun bind(owner: B) {
-        // TODO: workaround for MPP
-        /*if (_owner == null) {
+        if (_owner == null) {
             _owner = owner
         } else {
             throw IllegalStateException("${javaClass.simpleName} for $signature is already bound: ${_owner?.render()}")
-        }*/
-        _owner = owner
+        }
     }
 
     override val isBound: Boolean

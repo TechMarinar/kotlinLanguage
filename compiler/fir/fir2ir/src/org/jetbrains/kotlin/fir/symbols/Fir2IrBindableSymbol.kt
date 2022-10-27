@@ -24,13 +24,11 @@ abstract class Fir2IrBindableSymbol<out D : DeclarationDescriptor, B : IrDeclara
         get() = _owner ?: throw IllegalStateException("Symbol is unbound")
 
     override fun bind(owner: B) {
-        //TODO: workaround for MPP
-        /*if (_owner == null || rewriteOwner) {
+        if (_owner == null) {
             _owner = owner
         } else {
             throw IllegalStateException("${javaClass.simpleName} for $signature is already bound")
-        }*/
-        _owner = owner
+        }
     }
 
     override val isBound: Boolean
