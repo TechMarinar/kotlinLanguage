@@ -34,20 +34,20 @@ class KLibToJvmBackendFacade(
         val visitedModules = mutableSetOf<TestModule>()
         val dependencyFragments = mutableListOf<IrModuleFragment>()
 
-        fun loadDependencyFragments(module: TestModule, level: Int) {
+        fun loadDependencyFragments(module: TestModule, isRoot: Boolean) {
             if (!visitedModules.add(module)) return
 
-            if (level > 0) {
+            if (!isRoot) {
                 val artifact = dependencyProvider.getArtifact(module, ArtifactKinds.KLib)
                 dependencyFragments.addIfNotNull((artifact as? JvmKLibArtifact)?.backendInput?.irModuleFragment)
             }
 
             for (dependency in module.dependsOnDependencies) {
-                loadDependencyFragments(dependencyProvider.getTestModule(dependency.moduleName), level + 1)
+                loadDependencyFragments(dependencyProvider.getTestModule(dependency.moduleName), isRoot = false)
             }
         }
 
-        loadDependencyFragments(module, 0)
+        loadDependencyFragments(module, isRoot = true)
         IrActualizer.actualize(inputArtifact.backendInput.irModuleFragment, inputArtifact.backendInput.symbolTable, dependencyFragments)
 
         return jvmFacadeHelper.transform(
