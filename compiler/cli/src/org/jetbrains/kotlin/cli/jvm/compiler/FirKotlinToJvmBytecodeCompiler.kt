@@ -41,8 +41,6 @@ import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.pipeline.*
-import org.jetbrains.kotlin.fir.resolve.providers.firProvider
-import org.jetbrains.kotlin.fir.resolve.providers.impl.FirProviderImpl
 import org.jetbrains.kotlin.fir.session.FirSessionFactoryHelper
 import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
@@ -244,15 +242,17 @@ object FirKotlinToJvmBytecodeCompiler {
 
         val sessionProvider = FirProjectSessionProvider()
 
+        val isMpp = languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) && commonKtFiles.isNotEmpty()
+
         fun createSession(
             name: String,
             platform: TargetPlatform,
             analyzerServices: PlatformDependentAnalyzerServices,
             sourceScope: AbstractProjectFileSearchScope,
             dependenciesConfigurator: DependencyListForCliModule.Builder.() -> Unit,
-            isCommonSession: Boolean
+            isCommonSession: Boolean,
         ): FirSession {
-            return FirSessionFactoryHelper.createSessionWithDependencies(
+            return FirSessionFactoryHelper.createCommonOrJvmSessionWithDependencies(
                 Name.identifier(name),
                 platform,
                 analyzerServices,
@@ -265,7 +265,7 @@ object FirKotlinToJvmBytecodeCompiler {
                 enumWhenTracker = moduleConfiguration.get(CommonConfigurationKeys.ENUM_WHEN_TRACKER),
                 providerAndScopeForIncrementalCompilation,
                 firExtensionRegistrars,
-                !isCommonSession,
+                needRegisterJavaElementFinder = !isCommonSession,
                 dependenciesConfigurator = {
                     dependencies(moduleConfiguration.jvmClasspathRoots.map { it.toPath() })
                     dependencies(moduleConfiguration.jvmModularRoots.map { it.toPath() })
@@ -278,12 +278,11 @@ object FirKotlinToJvmBytecodeCompiler {
                     }
                 },
                 isCommonSession = isCommonSession,
+                isMpp = isMpp
             )
         }
 
-        val commonSession = runIf(
-            languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) && commonKtFiles.isNotEmpty()
-        ) {
+        val commonSession = runIf(isMpp) {
             val commonSourcesScope = projectEnvironment.getSearchScopeByPsiFiles(commonKtFiles)
             sourceScope -= commonSourcesScope
             ktFiles = ktFiles.filterNot { it.isCommonSource == true }
@@ -293,7 +292,7 @@ object FirKotlinToJvmBytecodeCompiler {
                 CommonPlatformAnalyzerServices,
                 commonSourcesScope,
                 dependenciesConfigurator = {},
-                isCommonSession = true
+                isCommonSession = true,
             )
         }
 

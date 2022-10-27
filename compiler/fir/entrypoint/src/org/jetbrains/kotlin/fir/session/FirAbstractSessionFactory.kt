@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirDependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirCompositeSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirDependenciesSymbolProviderImpl
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirLibrarySessionProvider
@@ -118,5 +119,12 @@ abstract class FirAbstractSessionFactory {
             generatedSymbolsProvider?.let { register(FirSwitchableExtensionDeclarationsSymbolProvider::class, it) }
             register(FirDependenciesSymbolProvider::class, dependenciesSymbolProvider)
         }
+    }
+
+    protected fun getDependentLibraryProviders(dependencyList: DependencyListForCliModule): List<FirSymbolProvider> {
+        return dependencyList.dependsOnDependencies.lastOrNull()?.session
+            .let { it?.dependenciesSymbolProvider as? FirDependenciesSymbolProviderImpl }
+            ?.dependencyProviders?.filter { it.session.kind == FirSession.Kind.Library }
+            ?: emptyList()
     }
 }

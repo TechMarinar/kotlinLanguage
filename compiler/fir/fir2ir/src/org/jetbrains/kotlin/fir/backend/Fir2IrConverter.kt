@@ -500,11 +500,10 @@ class Fir2IrConverter(
             components.visibilityConverter = visibilityConverter
             val typeConverter = Fir2IrTypeConverter(components)
             components.typeConverter = typeConverter
-            val irBuiltIns =
-                IrBuiltInsOverFir(
-                    components, languageVersionSettings, moduleDescriptor, irMangler,
-                    languageVersionSettings.getFlag(AnalysisFlags.builtInsFromSources)
-                )
+            val irBuiltIns = dependentComponents.lastOrNull()?.irBuiltIns ?: IrBuiltInsOverFir(
+                components, languageVersionSettings, moduleDescriptor, irMangler,
+                languageVersionSettings.getFlag(AnalysisFlags.builtInsFromSources)
+            )
             components.irBuiltIns = irBuiltIns
             val conversionScope = Fir2IrConversionScope()
             val fir2irVisitor = Fir2IrVisitor(components, conversionScope)

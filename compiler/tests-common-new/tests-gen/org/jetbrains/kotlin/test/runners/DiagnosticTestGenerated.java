@@ -490,6 +490,12 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
         }
 
         @Test
+        @TestMetadata("noLibraryProvidersDuplicationWithMpp.kt")
+        public void testNoLibraryProvidersDuplicationWithMpp() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/noLibraryProvidersDuplicationWithMpp.kt");
+        }
+
+        @Test
         @TestMetadata("noSymbolProvidersDuplicationInDiamond.kt")
         public void testNoSymbolProvidersDuplicationInDiamond() throws Exception {
             runTest("compiler/testData/diagnostics/tests/noSymbolProvidersDuplicationInDiamond.kt");

@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.cli.jvm.compiler
 
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.local.CoreLocalVirtualFile
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.SmartList
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
@@ -42,7 +43,7 @@ class JvmPackagePartProvider(
 
     override val loadedModules: MutableList<ModuleMappingInfo<VirtualFile>> = SmartList()
 
-    fun addRoots(roots: List<JavaRoot>, messageCollector: MessageCollector) {
+    fun addRoots(roots: List<JavaRoot>, messageCollector: MessageCollector, considerOnlyLocalFiles: Boolean = false) {
         for ((root, type) in roots) {
             if (type != JavaRoot.RootType.BINARY) continue
             if (root !in scope) continue
@@ -50,6 +51,7 @@ class JvmPackagePartProvider(
             val metaInf = root.findChild("META-INF") ?: continue
             for (moduleFile in metaInf.children) {
                 if (!moduleFile.name.endsWith(ModuleMapping.MAPPING_FILE_EXT)) continue
+                if (considerOnlyLocalFiles && moduleFile !is CoreLocalVirtualFile) continue
 
                 tryLoadModuleMapping(
                     { moduleFile.contentsToByteArray() }, moduleFile.toString(), moduleFile.path,

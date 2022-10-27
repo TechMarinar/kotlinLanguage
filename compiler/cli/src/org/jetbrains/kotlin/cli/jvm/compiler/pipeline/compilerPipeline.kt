@@ -392,7 +392,7 @@ fun createSession(
                 precompiledBinariesFileScope?.let { librariesScope -= it }
             }
 
-    return FirSessionFactoryHelper.createSessionWithDependencies(
+    return FirSessionFactoryHelper.createCommonOrJvmSessionWithDependencies(
         Name.identifier(name),
         platform,
         analyzerServices,

@@ -18,10 +18,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.JvmPackagePartProvider
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.registerInProject
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.CompilerConfigurationKey
-import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.ir.util.IrMessageLogger
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.platform.TargetPlatform
@@ -97,10 +94,14 @@ open class CompilerConfigurationProviderImpl(
         )
         val configuration = createCompilerConfiguration(module, configurators)
         val projectEnv = KotlinCoreEnvironment.ProjectEnvironment(testRootDisposable, applicationEnvironment, configuration)
+        val considerOnlyLocalRoots = module.frontendKind == FrontendKinds.FIR &&
+                    module.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) &&
+                    module.dependsOnDependencies.isNotEmpty()
         return KotlinCoreEnvironment.createForTests(
             projectEnv,
             configuration,
-            configFiles
+            configFiles,
+            considerOnlyLocalRoots
         ).also { registerCompilerExtensions(projectEnv.project, module, configuration) }
     }
 

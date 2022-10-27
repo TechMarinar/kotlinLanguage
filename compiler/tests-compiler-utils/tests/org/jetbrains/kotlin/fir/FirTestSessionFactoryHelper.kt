@@ -32,7 +32,7 @@ object FirTestSessionFactoryHelper {
         moduleName: String = "TestModule",
         friendsPaths: List<Path> = emptyList(),
         languageVersionSettings: LanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT
-    ): FirSession = FirSessionFactoryHelper.createSessionWithDependencies(
+    ): FirSession = FirSessionFactoryHelper.createCommonOrJvmSessionWithDependencies(
         Name.identifier(moduleName),
         JvmPlatforms.unspecifiedJvmPlatform,
         JvmPlatformAnalyzerServices,
@@ -60,7 +60,7 @@ object FirTestSessionFactoryHelper {
         friendsPaths: List<Path> = emptyList(),
         getPackagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
     ): FirSession {
-        return FirSessionFactoryHelper.createSessionWithDependencies(
+        return FirSessionFactoryHelper.createCommonOrJvmSessionWithDependencies(
             Name.identifier(moduleName),
             JvmPlatforms.unspecifiedJvmPlatform,
             JvmPlatformAnalyzerServices,

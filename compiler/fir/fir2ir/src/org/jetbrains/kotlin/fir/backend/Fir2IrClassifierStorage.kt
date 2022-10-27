@@ -42,6 +42,7 @@ class Fir2IrClassifierStorage(
     dependentStorages: List<Fir2IrClassifierStorage>
 ) : Fir2IrComponents by components {
     private val firProvider = session.firProvider
+    private val preCacheBuiltinClasses = dependentStorages.isEmpty()
 
     private val classCache: MutableMap<FirRegularClass, IrClass> = merge(dependentStorages) { it.classCache }
 
@@ -79,6 +80,7 @@ class Fir2IrClassifierStorage(
         with(typeConverter) { toIrType(typeContext) }
 
     fun preCacheBuiltinClasses() {
+        if (!preCacheBuiltinClasses) return
         for ((classId, irBuiltinSymbol) in typeConverter.classIdToSymbolMap) {
             val firClass = ConeClassLikeLookupTagImpl(classId).toSymbol(session)!!.fir as FirRegularClass
             val irClass = irBuiltinSymbol.owner

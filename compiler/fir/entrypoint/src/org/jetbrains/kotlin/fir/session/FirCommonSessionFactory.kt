@@ -6,7 +6,9 @@
 package org.jetbrains.kotlin.fir.session
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
-import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.DependencyListForCliModule
+import org.jetbrains.kotlin.fir.FirModuleData
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.checkers.registerJsCheckers
 import org.jetbrains.kotlin.fir.checkers.registerJvmCheckers
 import org.jetbrains.kotlin.fir.checkers.registerNativeCheckers
@@ -36,6 +38,8 @@ object FirCommonSessionFactory : FirAbstractSessionFactory() {
         scope: AbstractProjectFileSearchScope,
         packagePartProvider: PackagePartProvider,
         languageVersionSettings: LanguageVersionSettings,
+        reuseDependentLibraryProviders: Boolean,
+        ignoreExtraJvmClassFileBasedProvider: Boolean
     ): FirSession {
         return createLibrarySession(
             mainModuleName,
@@ -45,19 +49,31 @@ object FirCommonSessionFactory : FirAbstractSessionFactory() {
             registerExtraComponents = { it.registerCommonJavaComponents(projectEnvironment.getJavaModuleResolver()) },
             createKotlinScopeProvider = { FirKotlinScopeProvider { _, declaredMemberScope, _, _ -> declaredMemberScope } },
             createProviders = { session, builtinsModuleData, kotlinScopeProvider ->
-                listOf(
-                    JvmClassFileBasedSymbolProvider(
-                        session,
-                        dependencyList.moduleDataProvider,
-                        kotlinScopeProvider,
-                        packagePartProvider,
-                        projectEnvironment.getKotlinClassFinder(scope),
-                        projectEnvironment.getFirJavaFacade(session, dependencyList.moduleDataProvider.allModuleData.last(), scope)
-                    ),
-                    FirBuiltinSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
-                    FirCloneableSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
-                    OptionalAnnotationClassesProvider(session, dependencyList.moduleDataProvider, kotlinScopeProvider, packagePartProvider)
+                val jvmClassFileBasedSymbolProvider = if (ignoreExtraJvmClassFileBasedProvider)
+                    null
+                else JvmClassFileBasedSymbolProvider(
+                    session,
+                    dependencyList.moduleDataProvider,
+                    kotlinScopeProvider,
+                    packagePartProvider,
+                    projectEnvironment.getKotlinClassFinder(scope),
+                    projectEnvironment.getFirJavaFacade(session, dependencyList.moduleDataProvider.allModuleData.last(), scope)
                 )
+                if (reuseDependentLibraryProviders) {
+                    listOfNotNull(jvmClassFileBasedSymbolProvider) + getDependentLibraryProviders(dependencyList)
+                } else {
+                    listOfNotNull(
+                        jvmClassFileBasedSymbolProvider,
+                        FirBuiltinSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
+                        FirCloneableSymbolProvider(session, builtinsModuleData, kotlinScopeProvider),
+                        OptionalAnnotationClassesProvider(
+                            session,
+                            dependencyList.moduleDataProvider,
+                            kotlinScopeProvider,
+                            packagePartProvider
+                        )
+                    )
+                }
             }
         )
     }
