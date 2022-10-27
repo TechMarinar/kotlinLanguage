@@ -16,9 +16,7 @@ import org.jetbrains.kotlin.backend.jvm.ir.isInlineParameter
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrInlineMarker
-import org.jetbrains.kotlin.ir.expressions.IrContainerExpression
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrFunctionExpression
+import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.util.getArgumentsWithIr
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
@@ -52,9 +50,14 @@ class CreateSeparateCallForInlinedLambdasLowering(val context: JvmBackendContext
         return super.visitContainerExpression(expression)
     }
 
-    private fun IrInlineMarker.getOnlyInlinableArguments(): List<IrFunctionExpression> {
+    private fun IrInlineMarker.getOnlyInlinableArguments(): List<IrExpression> {
         return this.inlineCall.getArgumentsWithIr()
-            .filter { (param, arg) -> param.isInlineParameter() && arg is IrFunctionExpression }
-            .map { it.second as IrFunctionExpression }
+            .filter { (param, arg) -> param.isInlineParameter() && arg.isInlinableExpression() }
+            .map { it.second }
+    }
+
+    private fun IrExpression.isInlinableExpression(): Boolean {
+        return this is IrFunctionExpression || this is IrFunctionReference
+                || (this is IrBlock && origin == IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE)
     }
 }

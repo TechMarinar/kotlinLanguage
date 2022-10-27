@@ -1065,7 +1065,7 @@ object IrTree : AbstractTreeBuilder() {
 
         +field("inlineCall", call)
         +field("callee", function)
-        +field("originalExpression", functionExpression, nullable = true)
+        +field("originalExpression", attributeContainer, nullable = true, mutable = true)
         +field("inlinedAt", declaration)
     }
 }

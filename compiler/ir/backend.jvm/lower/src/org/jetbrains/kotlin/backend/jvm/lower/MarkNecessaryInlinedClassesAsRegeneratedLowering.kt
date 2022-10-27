@@ -128,7 +128,11 @@ class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: JvmBackendCo
 
             override fun visitCall(expression: IrCall) {
                 if (expression.symbol == context.ir.symbols.singleArgumentInlineFunction) {
-                    (expression.getValueArgument(0) as IrFunctionExpression).function.acceptVoid(this)
+                    when (val lambda = expression.getValueArgument(0)) {
+                        is IrBlock -> (lambda.statements.last() as IrFunctionReference).acceptVoid(this)
+                        is IrFunctionExpression -> lambda.function.acceptVoid(this)
+                        else -> lambda?.acceptVoid(this) // for example IrFunctionReference
+                    }
                     return
                 }
 

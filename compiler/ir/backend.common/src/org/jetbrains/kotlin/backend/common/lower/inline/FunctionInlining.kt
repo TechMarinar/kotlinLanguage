@@ -488,7 +488,11 @@ class FunctionInlining(
                     for (index in 0 until irFunctionReference.typeArgumentsCount)
                         putTypeArgument(index, irFunctionReference.getTypeArgument(index))
                 }.implicitCastIfNeededTo(irCall.type)
-                return super.visitExpression(immediateCall).transform(this@FunctionInlining, null)
+                return super.visitExpression(immediateCall).transform(this@FunctionInlining, null).apply {
+                    if (this is IrReturnableBlock) {
+                        (this.statements.first() as IrInlineMarker).originalExpression = irFunctionReference
+                    }
+                }
             }
 
             override fun visitElement(element: IrElement) = element.accept(this, null)
