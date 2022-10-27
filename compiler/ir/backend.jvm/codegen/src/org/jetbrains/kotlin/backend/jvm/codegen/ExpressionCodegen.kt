@@ -220,14 +220,33 @@ class ExpressionCodegen(
 //            return mappedLineNumber
             var previousData: AdditionalIrInlineData? = null
             var result = -1
-            for (inlineData in getLocalSmap().reversed()) {
+            val iterator = getLocalSmap().reversed().iterator()
+            while (iterator.hasNext()) {
+                if (previousData?.isInvokeOnLambda() == true) {
+                    while (iterator.hasNext() && iterator.next().inlineMarker.callee != previousData.inlineMarker.inlinedAt) {
+                        // after lambda's smap we should skip "frames" that were inlined inside body of inline function that accept given lambda
+                        continue
+                    }
+                    if (!iterator.hasNext()) break
+                }
+                val inlineData = iterator.next()
+
+                previousData = inlineData
+                val localFileEntry = inlineData.inlineMarker.callee.fileEntry
+                val lineNumber = if (result == -1) localFileEntry.getLineNumber(offset) + 1 else result
+                val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
+                result = mappedLineNumber
+            }
+            /*for ((index, inlineData) in getLocalSmap().reversed().withIndex()) {
 //                if (getLocalSmap().last().smap.parent != inlineData.smap.parent) {
 //                    continue
 //                }
 //                if (previousSmap == inlineData.smap.parent) {
 //                    continue
 //                }
-                if (previousData?.isInvokeOnLambda() == true && inlineData.inlineMarker.callee != previousData.inlineMarker.originalExpression!!.function.parent) {
+                // inlineData.inlineMarker.callee != previousData.inlineMarker.originalExpression!!.function.parent // right one
+                // inlineData.smap.parent != previousData.smap.parent
+                if (previousData?.isInvokeOnLambda() == true && (inlineData.smap.parent != previousData.smap.parent || index == getLocalSmap().size - 1)) {
                     continue
                 }
                 previousData = inlineData
@@ -235,7 +254,7 @@ class ExpressionCodegen(
                 val lineNumber = if (result == -1) localFileEntry.getLineNumber(offset) + 1 else result
                 val mappedLineNumber = inlineData.smap.mapLineNumber(lineNumber)
                 result = mappedLineNumber
-            }
+            }*/
             return result
         }
         return fileEntry.getLineNumber(offset) + 1
@@ -521,7 +540,7 @@ class ExpressionCodegen(
         }
 
         // TODO start_4: reuse code from org/jetbrains/kotlin/codegen/inline/MethodInliner.kt:267
-        if (marker.originalExpression != null) {
+        if ((block.origin as InlinedFunction).isLambdaInlining) {
             val overrideLineNumber = marker.callee.isInlineOnly()
             val currentLineNumber = if (overrideLineNumber) getLocalSmap().last().smap.callSite!!.line else lineNumberForOffset
 
@@ -562,7 +581,7 @@ class ExpressionCodegen(
         }
         // TODO end_1
 
-        if (marker.originalExpression == null) {
+        if (!(block.origin as InlinedFunction).isLambdaInlining) {
             // TODO start_3: reuse from visitReturn and see ReturnableBlockLowering
             val lastStatement = marker.callee.body!!.statements.last()
             if (lastStatement is IrReturn && lastStatement.returnTargetSymbol == marker.callee.symbol) {
@@ -575,7 +594,7 @@ class ExpressionCodegen(
         dropLastLocalSmap()
 
 
-        if (marker.originalExpression != null) { // is lambda call
+        if ((block.origin as InlinedFunction).isLambdaInlining) {
             val overrideLineNumber = marker.callee.isInlineOnly()
             val currentLineNumber = if (overrideLineNumber) getLocalSmap().last().smap.callSite!!.line else lineNumberForOffset
 //        currentLineNumber = getLineNumberForOffset(marker.inlineCall.startOffset)
@@ -1075,8 +1094,8 @@ class ExpressionCodegen(
             val sourceMapper = if (localSmaps.isEmpty()) {
                 smap
             } else {
-                localSmaps.reversed().firstOrNull { it.inlineMarker.inlinedAt == declaration.originalExpression!!.function.parent }?.smap?.parent
-                    ?: localSmaps.last().smap.parent
+                localSmaps.reversed().firstOrNull { it.inlineMarker.callee == declaration.inlinedAt }?.smap?.parent
+                    ?: localSmaps.last().smap.parent // if we are in anonymous inlined class and lambda was declared outside
             }
             addToLocalSmap(
                 AdditionalIrInlineData(
@@ -1097,7 +1116,7 @@ class ExpressionCodegen(
                 val callGenerator = getOrCreateCallGenerator(callToActualCallee, data, callable.signature)
                 (callGenerator as InlineCodegen<*>).compileInline()
             }
-            // there can be several functions with given attributeOwnerId (for example default one)
+            // there can be several functions with given attributeOwnerId (for example default one, or with $$forInline postfix)
             // we need to compile them all (to cache smap) but we are interested only in single smap for now
 
             val key = declaration.callee.parentClassOrNull!!

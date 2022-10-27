@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.common.ir
 
 import org.jetbrains.kotlin.backend.common.lower.VariableRemapper
+import org.jetbrains.kotlin.backend.common.lower.inline.InlinedFunction
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.IrStatementsBuilder
@@ -137,14 +138,14 @@ private fun IrExpression.checkForLoweredInlinedFunctionOrThrowException() {
 
 fun IrExpression.wasExplicitlyInlined(): Boolean {
     if (this !is IrBlock) return false
-    val marker = this.statements.firstOrNull() as? IrInlineMarker ?: return false
-    return marker.originalExpression == null
+    if (this.statements.firstOrNull() !is IrInlineMarker) return false
+    return !(this.origin as InlinedFunction).isLambdaInlining
 }
 
 fun IrExpression.wasInlinedFromLambda(): Boolean {
     if (this !is IrBlock) return false
-    val marker = this.statements.firstOrNull() as? IrInlineMarker ?: return false
-    return marker.originalExpression != null
+    if (this.statements.firstOrNull() !is IrInlineMarker) return false
+    return (this.origin as InlinedFunction).isLambdaInlining
 }
 
 fun IrExpression.getAdditionalStatementsFromInlinedBlock(): List<IrStatement> {
