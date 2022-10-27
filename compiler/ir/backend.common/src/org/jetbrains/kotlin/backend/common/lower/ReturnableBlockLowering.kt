@@ -9,16 +9,12 @@ import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.builders.createTmpVariable
-import org.jetbrains.kotlin.ir.builders.irBoolean
-import org.jetbrains.kotlin.ir.builders.irBreak
-import org.jetbrains.kotlin.ir.builders.irSet
+import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrSymbolOwner
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrDoWhileLoopImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.transformStatement
@@ -150,7 +146,7 @@ class ReturnableBlockTransformer(val context: CommonBackendContext, val containe
             return builder.irBlock(expression, expression.origin) {
                 +variable
                 +loop
-                +IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, variable.type, variable.symbol)
+                +at(UNDEFINED_OFFSET, UNDEFINED_OFFSET).irGet(variable)
             }
         }
     }
