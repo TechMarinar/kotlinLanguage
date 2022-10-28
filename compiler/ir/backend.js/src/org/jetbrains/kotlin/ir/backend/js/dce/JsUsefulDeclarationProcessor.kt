@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.ir.backend.js.dce
 
-import org.jetbrains.kotlin.backend.common.lower.MethodsFromAnyGeneratorForLowerings.Companion.collectOverridenSymbols
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
 import org.jetbrains.kotlin.ir.backend.js.export.isExported
@@ -38,7 +37,7 @@ internal class JsUsefulDeclarationProcessor(
         override fun visitCall(expression: IrCall, data: IrDeclaration) {
             super.visitCall(expression, data)
 
-            if (expression.superQualifierSymbol != null) {
+            if (expression.superQualifierSymbol != null && !context.es6mode) {
                 context.intrinsics.jsPrototypeOfSymbol.owner.enqueue(expression.symbol.owner, "access to super type")
             }
 
@@ -81,6 +80,13 @@ internal class JsUsefulDeclarationProcessor(
                     constructedClasses += classToCreate
                 }
 
+                context.intrinsics.jsCreateThisFromParentSymbol, context.intrinsics.jsCreateThisSymbol -> {
+                    val jsClassCall = expression.getValueArgument(0) as IrCall
+                    val classToCreate = jsClassCall.getTypeArgument(0)!!.classifierOrFail.owner as IrClass
+                    classToCreate.enqueue(data, "intrinsic: jsCreateThis")
+                    constructedClasses += classToCreate
+                }
+
                 context.intrinsics.jsEquals -> {
                     equalsMethod.enqueue(data, "intrinsic: jsEquals")
                 }
@@ -96,26 +102,6 @@ internal class JsUsefulDeclarationProcessor(
                 context.intrinsics.jsPlus -> {
                     if (expression.getValueArgument(0)?.type?.classOrNull == context.irBuiltIns.stringClass) {
                         toStringMethod.enqueue(data, "intrinsic: jsPlus")
-                    }
-                }
-
-                context.intrinsics.jsConstruct -> {
-                    val callType = expression.getTypeArgument(0)!!
-                    val constructor = callType.getClass()!!.primaryConstructor
-                    constructor!!.enqueue(data, "ctor call from jsConstruct-intrinsic")
-                }
-
-                context.intrinsics.es6DefaultType -> {
-                    //same as jsClass
-                    val ref = expression.getTypeArgument(0)!!.classifierOrFail.owner as IrDeclaration
-                    ref.enqueue(data, "intrinsic: jsClass")
-                    referencedJsClasses += ref
-
-                    //Generate klass in `val currResultType = resultType || klass`
-                    val arg = expression.getTypeArgument(0)!!
-                    val klass = arg.getClass()
-                    if (klass != null) {
-                        constructedClasses.add(klass)
                     }
                 }
 
@@ -169,7 +155,7 @@ internal class JsUsefulDeclarationProcessor(
             context.intrinsics.setMetadataForSymbol.owner.enqueue(irClass, "metadata")
 
 
-            if (irClass.isInterface && irClass.declarations.any { it is IrFunction && it.isReal && it.body != null }) {
+            if (irClass.isInterface && irClass.declarations.any { it is IrFunction && it.body != null }) {
                 context.intrinsics.jsPrototypeOfSymbol.owner.enqueue(irClass, "interface default implementation")
             }
 

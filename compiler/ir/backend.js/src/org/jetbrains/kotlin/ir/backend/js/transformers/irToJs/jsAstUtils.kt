@@ -198,6 +198,10 @@ fun translateCall(
             Pair(function, superQualifier.owner)
         }
 
+        if (context.staticContext.backendContext.es6mode && !klass.isInterface) {
+            return JsInvocation(JsNameRef(context.getNameForMemberFunction(target), JsSuperRef()), arguments)
+        }
+
         val callRef = if (klass.isInterface && target.body != null) {
             JsNameRef(Namer.CALL_FUNCTION, JsNameRef(context.getNameForStaticDeclaration(target)))
         } else {
@@ -378,10 +382,10 @@ fun translateCallArguments(
 
     val varargParameterIndex = expression.symbol.owner.realOverrideTarget.varargParameterIndex()
 
-    val isValidForMemberAccessToHaveNullArg = expression.validWithNullArgs()
+    val validWithNullArgs = expression.validWithNullArgs()
     val arguments = (0 until size)
         .mapTo(ArrayList(size)) { index ->
-            expression.getValueArgument(index).checkOnNullability(isValidForMemberAccessToHaveNullArg)
+            expression.getValueArgument(index).checkOnNullability(validWithNullArgs)
         }
         .dropLastWhile {
             allowDropTailVoids &&
@@ -392,7 +396,7 @@ fun translateCallArguments(
             it?.accept(transformer, context)
         }
         .mapIndexed { index, result ->
-            val isEmptyExternalVararg = isValidForMemberAccessToHaveNullArg &&
+            val isEmptyExternalVararg = validWithNullArgs &&
                     varargParameterIndex == index &&
                     result is JsArrayLiteral &&
                     result.expressions.isEmpty()
