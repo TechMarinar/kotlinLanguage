@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrReturnableBlockSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 fun IrValueParameter.isInlineParameter(type: IrType = this.type) =
@@ -185,21 +184,13 @@ class FunctionInlining(
             return copyIrElement.copy(this)
         }
 
-        private fun IrFunction.isInlineOnly(): Boolean {
-            val inlineOnlyName = FqName("kotlin.internal.InlineOnly")
-            if (this is IrSimpleFunction && correspondingPropertySymbol != null) {
-                return correspondingPropertySymbol!!.owner.hasAnnotation(inlineOnlyName)
-            }
-            return this.hasAnnotation(inlineOnlyName)
-        }
-
         private fun IrReturnableBlock.addIrInlineMarker(
             callSite: IrFunctionAccessExpression,
             callee: IrFunction,
             originalExpression: IrFunctionExpression? = null
         ): IrReturnableBlock {
             val fileEntry = (parent as? IrDeclaration)?.fileOrNull?.fileEntry
-            if (fileEntry != null && !callee.isInlineOnly()) {
+            if (fileEntry != null) {
                 val inlinedAt = if (originalExpression == null) parent as IrDeclaration else this@Inliner.callee
                 val marker = IrInlineMarkerImpl(
                     UNDEFINED_OFFSET, UNDEFINED_OFFSET, callSite as IrCall, callee, originalExpression, inlinedAt

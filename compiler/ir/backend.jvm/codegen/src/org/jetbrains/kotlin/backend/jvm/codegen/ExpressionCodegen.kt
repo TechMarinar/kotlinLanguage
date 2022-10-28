@@ -69,6 +69,8 @@ import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
 import java.util.*
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 sealed class ExpressionInfo {
     var blockInfo: BlockInfo? = null
@@ -275,6 +277,17 @@ class ExpressionCodegen(
     }
 
     fun markLineNumber(element: IrElement) = element.markLineNumber(true)
+
+    @OptIn(ExperimentalContracts::class)
+    private inline fun noLineNumberScopeWithCondition(flag: Boolean, block: () -> Unit) {
+        contract {
+            callsInPlace(block, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
+        }
+        val previousState = noLineNumberScope
+        noLineNumberScope = noLineNumberScope || flag
+        block()
+        noLineNumberScope = previousState
+    }
 
     fun noLineNumberScope(block: () -> Unit) {
         val previousState = noLineNumberScope
@@ -538,10 +551,10 @@ class ExpressionCodegen(
 
         // TODO start_4: reuse code from org/jetbrains/kotlin/codegen/inline/MethodInliner.kt:267
         if ((block.origin as InlinedFunction).isLambdaInlining) {
-            val overrideLineNumber = marker.callee.isInlineOnly()
+            val overrideLineNumber = getLocalSmap().reversed().firstOrNull { !it.isInvokeOnLambda() }?.inlineMarker?.callee?.isInlineOnly() == true
             val currentLineNumber = if (overrideLineNumber) getLocalSmap().last().smap.callSite!!.line else lineNumberForOffset
 
-            val firstLine = marker.callee.fileEntry.getLineNumber(marker.callee.startOffset)
+            val firstLine = marker.callee.body?.statements?.firstOrNull()?.let { marker.callee.fileEntry.getLineNumber(it.startOffset) + 1 } ?: -1
             // TODO DefaultLambda
             if (/*(info is DefaultLambda != overrideLineNumber) &&*/ currentLineNumber >= 0 && firstLine == currentLineNumber) {
                 val label = Label()
@@ -553,73 +566,70 @@ class ExpressionCodegen(
         }
         // TODO end_4
 
-        // TODO create smap for defaults
-        visitInlineMarker(marker, data)
+        noLineNumberScopeWithCondition(marker.callee.isInlineOnly()) {
+            visitInlineMarker(marker, data)
 
-        block.getDefaultAdditionalStatementsFromInlinedBlock().forEach { exp ->
-            exp.accept(this, data).discard()
-        }
-
-        if (marker.inlineCall.hasDefaultArgs()) {
-            // we must reset LN because at this point in original inliner we will inline non default call
-            lastLineNumber = -1
-        }
-
-        val result = block.getOriginalStatementsFromInlinedBlock().fold(unitValue) { prev, exp ->
-            prev.discard()
-            exp.accept(this, data)
-        }
-
-        val callee = marker.callee
-        val calleeBody = callee.body
-        if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
-            // TODO start_1: reuse code
-            // Allow setting a breakpoint on the closing brace of a void-returning function
-            // without an explicit return, or the `class Something(` line of a primary constructor.
-            if (callee.origin != JvmLoweredDeclarationOrigin.CLASS_STATIC_INITIALIZER) {
-                callee.markLineNumber(startOffset = callee is IrConstructor && callee.isPrimary)
-                mv.nop()
+            block.getDefaultAdditionalStatementsFromInlinedBlock().forEach { exp ->
+                exp.accept(this, data).discard()
             }
-        }
-        // TODO end_1
 
-        if (!(block.origin as InlinedFunction).isLambdaInlining) {
-            // TODO start_3: reuse from visitReturn and see ReturnableBlockLowering
-            val lastStatement = marker.callee.body!!.statements.last()
-            if (lastStatement is IrReturn && lastStatement.returnTargetSymbol == marker.callee.symbol) {
-                block.statements.last().markLineNumber(startOffset = true)
-                mv.nop()
+            if (marker.inlineCall.hasDefaultArgs()) {
+                // we must reset LN because at this point in original inliner we will inline non default call
+                lastLineNumber = -1
             }
-            // TODO end_3
-        }
 
-        dropLastLocalSmap()
+            val result = block.getOriginalStatementsFromInlinedBlock().fold(unitValue) { prev, exp ->
+                prev.discard()
+                exp.accept(this, data)
+            }
 
-
-        if ((block.origin as InlinedFunction).isLambdaInlining) {
-            val overrideLineNumber = marker.callee.isInlineOnly()
-            val currentLineNumber = if (overrideLineNumber) getLocalSmap().last().smap.callSite!!.line else lineNumberForOffset
-//        currentLineNumber = getLineNumberForOffset(marker.inlineCall.startOffset)
-            // TODO start_2: reuse code
-            if (currentLineNumber != -1) {
-                if (overrideLineNumber) {
-                    // This is from the function we're inlining into, so no need to remap.
-                    mv.visitLineNumber(currentLineNumber, markNewLabel())
-                } else {
-                    // Need to go through the superclass here to properly remap the line number via `sourceMapper`.
-//                    if (getLocalSmap().isNotEmpty()) {
-//                        val mappedLineNumber = getLocalSmap().last().smap.mapLineNumber(currentLineNumber)
-//                        mv.visitLineNumber(mappedLineNumber, markNewLabel())
-//                    } else {
-                        marker.inlineCall.markLineNumber(true)
-//                    }
+            val callee = marker.callee
+            val calleeBody = callee.body
+            if (calleeBody !is IrStatementContainer || calleeBody.statements.lastOrNull() !is IrReturn) {
+                // TODO start_1: reuse code
+                // Allow setting a breakpoint on the closing brace of a void-returning function
+                // without an explicit return, or the `class Something(` line of a primary constructor.
+                if (callee.origin != JvmLoweredDeclarationOrigin.CLASS_STATIC_INITIALIZER) {
+                    callee.markLineNumber(startOffset = callee is IrConstructor && callee.isPrimary)
+                    mv.nop()
                 }
-                mv.nop()
             }
-            // TODO end_2
-        }
+            // TODO end_1
 
-        return result
+            if (!(block.origin as InlinedFunction).isLambdaInlining) {
+                // TODO start_3: reuse from visitReturn and see ReturnableBlockLowering
+                val lastStatement = marker.callee.body!!.statements.last()
+                if (lastStatement is IrReturn && lastStatement.returnTargetSymbol == marker.callee.symbol) {
+                    block.statements.last().markLineNumber(startOffset = true)
+                    mv.nop()
+                }
+                // TODO end_3
+            }
+
+            dropLastLocalSmap()
+
+
+            if ((block.origin as InlinedFunction).isLambdaInlining) {
+                val overrideLineNumber = marker.callee.isInlineOnly()
+                val currentLineNumber = if (overrideLineNumber) getLocalSmap().last().smap.callSite!!.line else lineNumberForOffset
+//        currentLineNumber = getLineNumberForOffset(marker.inlineCall.startOffset)
+                // TODO start_2: reuse code
+                if (currentLineNumber != -1) {
+                    if (overrideLineNumber) {
+                        // This is from the function we're inlining into, so no need to remap.
+                        mv.visitLineNumber(currentLineNumber, markNewLabel())
+                    } else {
+                        // Need to go through the superclass here to properly remap the line number via `sourceMapper`.
+                        marker.inlineCall.markLineNumber(true)
+                    }
+                    mv.nop()
+                }
+                // TODO end_2
+            }
+
+            markLineNumberAfterInlineIfNeeded(marker.callee.isInlineOnly())
+            return result
+        }
     }
 
     private fun visitStatementContainer(container: IrStatementContainer, data: BlockInfo): PromisedValue {
