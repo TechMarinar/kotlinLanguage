@@ -47,7 +47,7 @@ open class AbstractFirBlackBoxCodegenTest : AbstractJvmBlackBoxCodegenTestBase<F
 
     override fun TestConfigurationBuilder.configuration() {
         if (!useIrActualizer) {
-            commonConfigurationForCodegenTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
+            commonConfigurationForTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade, isCodegenTest = true)
         } else {
             commonServicesConfigurationForCodegenTest(targetFrontend)
             facadeStep(frontendFacade)
