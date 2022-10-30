@@ -830,7 +830,6 @@ class IrBuiltInsOverFir(
         name, returnType, valueParameterTypes, origin, modality, isOperator, isInfix, isIntrinsicConst, build
     ).also { fn ->
         fn.addDispatchReceiver { type = this@createMemberFunction.defaultType }
-        findFunction(fn)?.let { declarations.remove(it) }
         declarations.add(fn)
         fn.parent = this@createMemberFunction
         if (isIntrinsicConst) {
@@ -840,19 +839,18 @@ class IrBuiltInsOverFir(
         // very simple and fragile logic, but works for all current usages
         // TODO: replace with correct logic or explicit specification if cases become more complex
         forEachSuperClass {
-            findFunction(fn)?.let { fn.overriddenSymbols += it.symbol }
+            functions.find {
+                it.name == fn.name && it.typeParameters.count() == fn.typeParameters.count() &&
+                        it.valueParameters.count() == fn.valueParameters.count() &&
+                        it.valueParameters.zip(fn.valueParameters).all { (l, r) -> l.type == r.type }
+            }?.let {
+                fn.overriddenSymbols += it.symbol
+            }
         }
         components.symbolTable.declareSimpleFunctionWithSignature(
             irSignatureBuilder.computeSignature(fn), fn.symbol
         )
     }
-
-    private fun IrClass.findFunction(fn: IrSimpleFunction) =
-        functions.find {
-            it.name == fn.name && it.typeParameters.count() == fn.typeParameters.count() &&
-                    it.valueParameters.count() == fn.valueParameters.count() &&
-                    it.valueParameters.zip(fn.valueParameters).all { (l, r) -> l.type == r.type }
-        }
 
     private fun IrClass.createMemberFunction(
         name: Name, returnType: IrType, vararg valueParameterTypes: Pair<String, IrType>,
@@ -933,7 +931,7 @@ class IrBuiltInsOverFir(
         fieldInit: IrExpression? = null,
         builder: IrProperty.() -> Unit = {}
     ) {
-        addProperty(removeExisting = true) {
+        addProperty {
             this.name = Name.identifier(propertyName)
             this.isConst = isConst
             this.modality = modality

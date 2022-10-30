@@ -94,11 +94,8 @@ inline fun IrFactory.buildProperty(builder: IrPropertyBuilder.() -> Unit) =
         buildProperty(this)
     }
 
-inline fun IrClass.addProperty(removeExisting: Boolean = false, builder: IrPropertyBuilder.() -> Unit): IrProperty =
+inline fun IrClass.addProperty(builder: IrPropertyBuilder.() -> Unit): IrProperty =
     factory.buildProperty(builder).also { property ->
-        if (removeExisting) {
-            declarations.removeIf { it is IrProperty && it.name == property.name }
-        }
         declarations.add(property)
         property.parent = this@addProperty
     }
