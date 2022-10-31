@@ -1551,13 +1551,11 @@ class Fir2IrDeclarationStorage(
         // In case of type parameters from the parent as the field's return type, find the parent ahead to cache type parameters.
         val irParent = findIrParent(fir)
 
-        val parentOrigin = (irParent as? IrDeclaration)?.origin ?: IrDeclarationOrigin.DEFINED
-        val declarationOrigin = computeDeclarationOrigin(firFieldSymbol, parentOrigin)
         val unwrapped = fir.unwrapFakeOverrides()
         if (unwrapped !== fir) {
             return getIrFieldSymbol(unwrapped.symbol)
         }
-        return createIrField(fir, irParent, origin = declarationOrigin).symbol
+        return createIrField(fir, irParent).symbol
     }
 
     fun getIrBackingFieldSymbol(firBackingFieldSymbol: FirBackingFieldSymbol): IrSymbol {

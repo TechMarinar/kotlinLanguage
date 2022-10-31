@@ -314,7 +314,7 @@ class FirClassSubstitutionScope(
             dispatchReceiverTypeForSubstitutedMembers.substitute() as? ConeClassLikeType ?: dispatchReceiverTypeForSubstitutedMembers
 
         return FirFakeOverrideGenerator.createSubstitutionOverrideField(
-            session, member, original, newDispatchReceiverType, newReturnType, newOwnerClassId
+            session, member, original, newDispatchReceiverType, newReturnType, newOwnerClassId, withInitializer = false
         )
     }
 
