@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.konan.optimizations
 
 import org.jetbrains.kotlin.backend.common.atMostOne
+import org.jetbrains.kotlin.backend.common.peek
 import org.jetbrains.kotlin.backend.common.pop
 import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.konan.*
@@ -143,6 +144,7 @@ internal object EscapeAnalysis {
         val ROOT_SCOPE = 0
         val RETURN_VALUE = -1
         val PARAMETER = -2
+        val GLOBAL = -3
     }
 
     object DivergenceResolutionParams {
@@ -545,6 +547,11 @@ internal object EscapeAnalysis {
             }
         }
 
+        private enum class ComputationState {
+            NEW,
+            PENDING
+        }
+
         private class Stats {
             var globalAllocsCount = 0
             var stackAllocsCount = 0
@@ -554,6 +561,14 @@ internal object EscapeAnalysis {
         }
 
         private val stats = Stats()
+
+        private fun maxPointsToGraphSizeOf(function: DataFlowIR.FunctionSymbol) = with(DivergenceResolutionParams) {
+            // A heuristic: the majority of functions have their points-to graph size linear in number of IR (or DFG) nodes,
+            // there are exceptions but it's a trade-off we have to make.
+            // The trick with [NegligibleSize] handles functions that basically delegate their work to other functions.
+            val numberOfNodes = intraproceduralAnalysisResults[function]!!.function.body.allScopes.sumOf { it.nodes.size }
+            NegligibleSize + numberOfNodes * SwellingFactor
+        }
 
         private fun analyze(callGraph: CallGraph, multiNode: DirectedGraphMultiNode<DataFlowIR.FunctionSymbol.Declared>) {
             val nodes = multiNode.nodes.filter { intraproceduralAnalysisResults.containsKey(it) }.toMutableSet()
@@ -571,11 +586,12 @@ internal object EscapeAnalysis {
                 }
             }
 
-            val pointsToGraphs = mutableMapOf<DataFlowIR.FunctionSymbol.Declared, PointsToGraph>()
+            var pointsToGraphs = mutableMapOf<DataFlowIR.FunctionSymbol.Declared, PointsToGraph>()
+            var failedToConverge = false
             val toAnalyze = mutableSetOf<DataFlowIR.FunctionSymbol.Declared>()
             toAnalyze.addAll(nodes)
             val numberOfRuns = nodes.associateWith { 0 }.toMutableMap()
-            while (toAnalyze.isNotEmpty()) {
+            while (!failedToConverge && toAnalyze.isNotEmpty()) {
                 val function = toAnalyze.first()
                 toAnalyze.remove(function)
                 numberOfRuns[function] = numberOfRuns[function]!! + 1
@@ -587,44 +603,31 @@ internal object EscapeAnalysis {
                 val pointsToGraph = PointsToGraph(function)
                 pointsToGraphs[function] = pointsToGraph
 
-                val maxAllowedGraphSize = with(DivergenceResolutionParams) {
-                    // A heuristic: the majority of functions have their points-to graph size linear in number of IR (or DFG) nodes,
-                    // there are exceptions but it's a trade-off we have to make.
-                    // The trick with [NegligibleSize] handles functions that basically delegate their work to other functions.
-                    val numberOfNodes = intraproceduralAnalysisResults[function]!!.function.body.allScopes.sumOf { it.nodes.size }
-                    NegligibleSize + numberOfNodes * SwellingFactor
-                }
-
-                var analyzedSuccessfully = analyze(callGraph, pointsToGraph, function, maxAllowedGraphSize)
-                var processCallers = true
-                if (analyzedSuccessfully) {
+                if (!analyze(callGraph.directEdges[function]!!.callSites, pointsToGraph, function, maxPointsToGraphSizeOf(function))) {
+                    failedToConverge = true
+                } else {
                     val endResult = escapeAnalysisResults[function]!!
                     if (startResult == endResult) {
                         context.log { "Escape analysis is not changed" }
-                        processCallers = false
                     } else {
                         context.log { "Escape analysis was refined:\n$endResult" }
                         if (numberOfRuns[function]!! > DivergenceResolutionParams.MaxAttempts)
-                            analyzedSuccessfully = false
+                            failedToConverge = true
+                        else {
+                            callGraph.reversedEdges[function]?.forEach {
+                                if (nodes.contains(it))
+                                    toAnalyze.add(it)
+                            }
+                        }
                     }
                 }
 
-                if (!analyzedSuccessfully) {
-                    // TODO: suboptimal. May be it is possible somehow handle the entire component at once?
-                    context.log {
-                        "WARNING: Escape analysis for $function seems not to be converging." +
-                                " Assuming conservative results."
-                    }
-                    escapeAnalysisResults[function] = FunctionEscapeAnalysisResult.pessimistic(function.parameters.size)
-                    nodes.remove(function)
-                }
+                if (failedToConverge)
+                    context.log { "WARNING: Escape analysis for $function seems not to be converging. Falling back to conservative strategy." }
+            }
 
-                if (processCallers) {
-                    callGraph.reversedEdges[function]?.forEach {
-                        if (nodes.contains(it))
-                            toAnalyze.add(it)
-                    }
-                }
+            if (failedToConverge) {
+                pointsToGraphs = analyzeComponentPessimistically(callGraph, multiNode)
             }
 
             pointsToGraphs.forEach { (function, graph) ->
@@ -634,8 +637,6 @@ internal object EscapeAnalysis {
                 stats.totalPTGSize += graph.allNodes.size
                 stats.totalDFGSize += intraproceduralAnalysisResults[function]!!.function.body.allScopes.sumOf { it.nodes.size }
 
-                // TODO: suboptimal.
-                if (function !in nodes) return@forEach
                 for (node in graph.nodes.keys) {
                     node.ir?.let {
                         val lifetime = graph.lifetimeOf(node)
@@ -651,6 +652,71 @@ internal object EscapeAnalysis {
                     }
                 }
             }
+        }
+
+        private fun analyzeComponentPessimistically(
+                callGraph: CallGraph,
+                multiNode: DirectedGraphMultiNode<DataFlowIR.FunctionSymbol.Declared>
+        ): MutableMap<DataFlowIR.FunctionSymbol.Declared, PointsToGraph> {
+            val nodes = multiNode.nodes.filter { intraproceduralAnalysisResults.containsKey(it) }
+            val nodesCallSites = nodes.associateWith { callGraph.directEdges[it]!!.callSites }
+            val pointsToGraphs = mutableMapOf<DataFlowIR.FunctionSymbol.Declared, PointsToGraph>()
+            val computationStates = mutableMapOf<DataFlowIR.FunctionSymbol.Declared, ComputationState>()
+            nodes.forEach { node ->
+                escapeAnalysisResults[node] = FunctionEscapeAnalysisResult.optimistic()
+                computationStates[node] = ComputationState.NEW
+            }
+            val toAnalyze = nodes.toMutableList()
+            while (toAnalyze.isNotEmpty()) {
+                val function = toAnalyze.peek()!!
+                val state = computationStates[function]!!
+                val callSites = nodesCallSites[function]!!
+                when (state) {
+                    ComputationState.NEW -> {
+                        computationStates[function] = ComputationState.PENDING
+                        for (callSite in callSites) {
+                            val callee = callSite.actualCallee
+                            if (callSite.isVirtual
+                                    || callee !is DataFlowIR.FunctionSymbol.Declared // An external call.
+                                    || !nodesCallSites.containsKey(callee) // A call to a function from other component.
+                                    || pointsToGraphs.containsKey(callee) // Already analyzed.
+                            ) {
+                                continue
+                            }
+
+                            if (computationStates[callee] == ComputationState.PENDING) {
+                                // A cycle - break it by assuming nothing about the callee.
+                                escapeAnalysisResults[callee] = FunctionEscapeAnalysisResult.pessimistic(callee.parameters.size)
+                            } else {
+                                computationStates[callee] = ComputationState.NEW
+                                toAnalyze.push(callee)
+                            }
+                        }
+                    }
+
+                    ComputationState.PENDING -> {
+                        toAnalyze.pop()
+                        if (pointsToGraphs[function] != null) continue
+                        val pointsToGraph = PointsToGraph(function)
+                        if (analyze(callSites, pointsToGraph, function, maxPointsToGraphSizeOf(function)))
+                            pointsToGraphs[function] = pointsToGraph
+                        else {
+                            // TODO: suboptimal. May be it is possible somehow handle the entire component at once?
+                            context.log {
+                                "WARNING: Escape analysis for $function seems not to be converging." +
+                                        " Assuming conservative results."
+                            }
+                            escapeAnalysisResults[function] = FunctionEscapeAnalysisResult.pessimistic(function.parameters.size)
+                            // Invalidate points-to graph.
+                            pointsToGraphs[function] = PointsToGraph(function).also {
+                                it.allNodes.forEach { it.depth = Depths.GLOBAL }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return pointsToGraphs
         }
 
         private fun arrayLengthOf(node: DataFlowIR.Node): Int? =
@@ -679,7 +745,7 @@ internal object EscapeAnalysis {
                 pointerSize /* typeinfo */ + 4 /* size */ + itemSize * length
 
         private fun analyze(
-                callGraph: CallGraph,
+                callSites: List<CallGraphNode.CallSite>,
                 pointsToGraph: PointsToGraph,
                 function: DataFlowIR.FunctionSymbol.Declared,
                 maxAllowedGraphSize: Int
@@ -688,7 +754,7 @@ internal object EscapeAnalysis {
             pointsToGraph.log()
             pointsToGraph.logDigraph(false)
 
-            callGraph.directEdges[function]!!.callSites.forEach {
+            callSites.forEach {
                 val callee = it.actualCallee
                 val calleeEAResult = if (it.isVirtual)
                     getExternalFunctionEAResult(it)
@@ -757,7 +823,8 @@ internal object EscapeAnalysis {
             STACK,
             LOCAL,
             PARAMETER,
-            RETURN_VALUE
+            RETURN_VALUE,
+            GLOBAL
         }
 
         private sealed class PointsToGraphEdge(val node: PointsToGraphNode) {
@@ -787,6 +854,7 @@ internal object EscapeAnalysis {
             }
 
             val kind get() = when {
+                depth == Depths.GLOBAL -> PointsToGraphNodeKind.GLOBAL
                 depth == Depths.PARAMETER -> PointsToGraphNodeKind.PARAMETER
                 depth == Depths.RETURN_VALUE -> PointsToGraphNodeKind.RETURN_VALUE
                 depth != nodeInfo.depth -> PointsToGraphNodeKind.LOCAL
@@ -858,6 +926,8 @@ internal object EscapeAnalysis {
                     if (escapes(node))
                         Lifetime.GLOBAL
                     else when (node.kind) {
+                        PointsToGraphNodeKind.GLOBAL -> Lifetime.GLOBAL
+
                         PointsToGraphNodeKind.PARAMETER -> Lifetime.ARGUMENT
 
                         PointsToGraphNodeKind.STACK -> {
