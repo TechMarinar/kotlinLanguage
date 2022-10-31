@@ -50,6 +50,7 @@ import org.jetbrains.kotlin.ir.types.IrErrorType
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
@@ -104,6 +105,8 @@ class Fir2IrDeclarationStorage(
     private val delegatedReverseCache = ConcurrentHashMap<IrDeclaration, FirDeclaration>()
 
     private val fieldCache = ConcurrentHashMap<FirField, IrField>()
+
+    private val fieldOverrideCache = ConcurrentHashMap<Pair<Name, ClassId>, IrField>()
 
     private val localStorage by threadLocal { Fir2IrLocalStorage() }
 
@@ -1015,11 +1018,9 @@ class Fir2IrDeclarationStorage(
     fun getCachedIrField(
         field: FirField,
         dispatchReceiverLookupTag: ConeClassLikeLookupTag?,
-        signatureCalculator: () -> IdSignature?
     ): IrField? {
-        return getCachedIrCallable(field, dispatchReceiverLookupTag, fieldCache, signatureCalculator) { signature ->
-            symbolTable.referenceFieldIfAny(signature)?.owner
-        }
+        if (dispatchReceiverLookupTag == null || dispatchReceiverLookupTag == field.containingClassLookupTag()) return fieldCache[field]
+        return fieldOverrideCache[field.name to dispatchReceiverLookupTag.classId]
     }
 
     fun createIrFieldAndDelegatedMembers(field: FirField, owner: FirClass, irClass: IrClass): IrField? {
@@ -1066,7 +1067,8 @@ class Fir2IrDeclarationStorage(
         origin: IrDeclarationOrigin = IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB
     ): IrField = convertCatching(field) {
         val type = typeRef.toIrType()
-        val containingClass = (irParent as? IrClass)?.classId?.let { ConeClassLikeLookupTagImpl(it) }
+        val classId = (irParent as? IrClass)?.classId
+        val containingClass = classId?.let { ConeClassLikeLookupTagImpl(it) }
         val signature = signatureComposer.composeSignature(field, containingClass)
         return field.convertWithOffsets { startOffset, endOffset ->
             if (signature != null) {
@@ -1090,7 +1092,13 @@ class Fir2IrDeclarationStorage(
                     isStatic = field.isStatic
                 )
             }.apply {
-                fieldCache[field] = this
+                if (classId == null ||
+                    !field.isSubstitutionOrIntersectionOverride && classId == field.containingClassLookupTag()?.classId
+                ) {
+                    fieldCache[field] = this
+                } else {
+                    fieldOverrideCache[field.name to classId] = this
+                }
                 val initializer = field.initializer
                 if (initializer is FirConstExpression<*>) {
                     this.initializer = factory.createExpressionBody(initializer.toIrConst(type))
@@ -1530,15 +1538,19 @@ class Fir2IrDeclarationStorage(
         val unmatchedReceiver = dispatchReceiverLookupTag != null && dispatchReceiverLookupTag != firFieldSymbol.containingClassLookupTag()
         if (!fir.isStatic && !unmatchedReceiver) {
             fieldCache[fir]?.let { return it.symbol }
-        } else {
+        }
+
+        if (fir.isStatic) {
             generateLazyFakeOverrides(fir.name, dispatchReceiverLookupTag)
+            if (dispatchReceiverLookupTag != null && dispatchReceiverLookupTag !is ConeClassLookupTagWithFixedSymbol) {
+                getCachedIrField(fir, dispatchReceiverLookupTag)?.let {
+                    return it.symbol
+                }
+            }
         }
         // In case of type parameters from the parent as the field's return type, find the parent ahead to cache type parameters.
         val irParent = findIrParent(fir)
 
-        getCachedIrField(fir, dispatchReceiverLookupTag.takeIf { fir.isStatic && it !is ConeClassLookupTagWithFixedSymbol }) {
-            signatureComposer.composeSignature(fir, dispatchReceiverLookupTag, forceTopLevelPrivate = false)
-        }?.let { return it.symbol }
         val parentOrigin = (irParent as? IrDeclaration)?.origin ?: IrDeclarationOrigin.DEFINED
         val declarationOrigin = computeDeclarationOrigin(firFieldSymbol, parentOrigin)
         val unwrapped = fir.unwrapFakeOverrides()
