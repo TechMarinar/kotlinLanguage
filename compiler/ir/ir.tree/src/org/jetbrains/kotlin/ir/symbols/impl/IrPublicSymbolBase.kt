@@ -79,7 +79,23 @@ class IrSimpleFunctionPublicSymbolImpl(sig: IdSignature, descriptor: FunctionDes
 
 class IrConstructorPublicSymbolImpl(sig: IdSignature, descriptor: ClassConstructorDescriptor? = null) :
     IrBindablePublicSymbolBase<ClassConstructorDescriptor, IrConstructor>(sig, descriptor),
-    IrConstructorSymbol
+    IrConstructorSymbol {
+    private fun debug(where: String) {
+        if (signature.render().startsWith("/Foo.<init>|")) {
+            val location = "$where @ ${this.hashCode()}"
+            println(location)
+        }
+    }
+
+    init {
+        debug("init")
+    }
+
+    override fun bind(owner: IrConstructor) {
+        super.bind(owner)
+        debug("bind")
+    }
+}
 
 class IrPropertyPublicSymbolImpl(sig: IdSignature, descriptor: PropertyDescriptor? = null) :
     IrBindablePublicSymbolBase<PropertyDescriptor, IrProperty>(sig, descriptor),
