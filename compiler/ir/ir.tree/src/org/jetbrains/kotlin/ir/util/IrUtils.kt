@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.overrides.FakeOverrideBuilderStrategy
 import org.jetbrains.kotlin.ir.overrides.IrOverridingUtil
-import org.jetbrains.kotlin.ir.overrides.IrUnimplementedOverridesStrategy
 import org.jetbrains.kotlin.ir.overrides.IrUnimplementedOverridesStrategy.ProcessAsFakeOverrides
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrPropertySymbolImpl
@@ -32,7 +31,6 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.DFS
 import org.jetbrains.kotlin.utils.addIfNotNull
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.io.StringWriter
 
 /**
@@ -340,10 +338,8 @@ fun IrFunction.isFakeOverriddenFromAny(): Boolean {
 
 fun IrCall.isSuperToAny() = superQualifierSymbol?.let { this.symbol.owner.isFakeOverriddenFromAny() } ?: false
 
-
 fun IrDeclaration.hasInterfaceParent() =
-    parent.safeAs<IrClass>()?.isInterface == true
-
+    (parent as? IrClass)?.isInterface == true
 
 fun IrPossiblyExternalDeclaration.isEffectivelyExternal(): Boolean =
     this.isExternal
