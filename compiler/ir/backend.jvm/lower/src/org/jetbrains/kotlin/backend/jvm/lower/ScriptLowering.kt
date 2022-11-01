@@ -45,7 +45,6 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmBackendErrors
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 internal val scriptsToClassesPhase = makeCustomPhase<JvmBackendContext, IrModuleFragment>(
     name = "ScriptsToClasses",
@@ -208,7 +207,7 @@ private class ScriptsToClassesLowering(val context: JvmBackendContext, val inner
                 .transform(lambdaPatcher, ScriptFixLambdasTransformerContext())
         }
 
-        irScript.constructor?.patchForClass()?.safeAs<IrConstructor>()!!.also { constructor ->
+        (irScript.constructor?.patchForClass() as IrConstructor).also { constructor ->
             val explicitParamsStartIndex = if (irScript.earlierScriptsParameter == null) 0 else 1
             val explicitParameters = constructor.valueParameters.subList(
                 explicitParamsStartIndex,
@@ -240,7 +239,7 @@ private class ScriptsToClassesLowering(val context: JvmBackendContext, val inner
                     +irSetField(
                         irGet(irScriptClass.thisReceiver!!),
                         field,
-                        irGet(correspondingParameter.patchForClass().safeAs<IrValueParameter>()!!)
+                        irGet(correspondingParameter.patchForClass() as IrValueParameter)
                     )
                 }
                 +IrInstanceInitializerCallImpl(

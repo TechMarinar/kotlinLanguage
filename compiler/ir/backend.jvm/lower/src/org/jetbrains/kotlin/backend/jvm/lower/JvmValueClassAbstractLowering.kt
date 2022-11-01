@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.ir.transformStatement
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 internal abstract class JvmValueClassAbstractLowering(val context: JvmBackendContext) : FileLoweringPass,
     IrElementTransformerVoidWithContext() {
@@ -128,7 +127,7 @@ internal abstract class JvmValueClassAbstractLowering(val context: JvmBackendCon
     abstract fun keepOldFunctionInsteadOfNew(function: IrFunction): Boolean
 
     final override fun visitReturn(expression: IrReturn): IrExpression {
-        expression.returnTargetSymbol.owner.safeAs<IrFunction>()?.let { target ->
+        (expression.returnTargetSymbol.owner as? IrFunction)?.let { target ->
             val suffix = target.hashSuffix()
             if (suffix != null && target.name.asString().endsWith(suffix))
                 return super.visitReturn(expression)
@@ -166,7 +165,7 @@ internal abstract class JvmValueClassAbstractLowering(val context: JvmBackendCon
 
     // Anonymous initializers in inline classes are processed when building the primary constructor.
     final override fun visitAnonymousInitializerNew(declaration: IrAnonymousInitializer): IrStatement =
-        if (declaration.parent.safeAs<IrClass>()?.isSpecificLoweringLogicApplicable() == true)
+        if ((declaration.parent as? IrClass)?.isSpecificLoweringLogicApplicable() == true)
             declaration
         else
             super.visitAnonymousInitializerNew(declaration)
