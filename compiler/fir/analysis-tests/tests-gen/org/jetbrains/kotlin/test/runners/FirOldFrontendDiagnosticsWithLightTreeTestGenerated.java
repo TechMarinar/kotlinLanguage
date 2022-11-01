@@ -14235,6 +14235,12 @@ public class FirOldFrontendDiagnosticsWithLightTreeTestGenerated extends Abstrac
             }
 
             @Test
+            @TestMetadata("smartCastForkForExpectType.kt")
+            public void testSmartCastForkForExpectType() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/inference/smartCastForkForExpectType.kt");
+            }
+
+            @Test
             @TestMetadata("specialCallsWithCallableReferences.kt")
             public void testSpecialCallsWithCallableReferences() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/inference/specialCallsWithCallableReferences.kt");
