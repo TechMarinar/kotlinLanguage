@@ -28,7 +28,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 
 object FirJvmNameAndExposeChecker : FirBasicDeclarationChecker() {
     override fun check(declaration: FirDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
-        var jvmName = declaration.findAnnotation(StandardClassIds.Annotations.JvmName)
+        val jvmName = declaration.findAnnotation(StandardClassIds.Annotations.JvmName)
         val jvmExpose = declaration.findAnnotation(StandardClassIds.Annotations.JvmExpose)
 
         if (jvmName != null && jvmExpose != null) {
@@ -39,7 +39,7 @@ object FirJvmNameAndExposeChecker : FirBasicDeclarationChecker() {
         jvmExpose?.let { context.checkJvmExpose(it, declaration, reporter) }
     }
 
-    fun CheckerContext.checkJvmName(jvmName: FirAnnotation, declaration: FirDeclaration, reporter: DiagnosticReporter) {
+    private fun CheckerContext.checkJvmName(jvmName: FirAnnotation, declaration: FirDeclaration, reporter: DiagnosticReporter) {
         val nameParameter = jvmName.findArgumentByName(StandardClassIds.Annotations.ParameterNames.jvmNameName) ?: return
 
         if (nameParameter.typeRef.coneType != session.builtinTypes.stringType.type) {
@@ -67,7 +67,7 @@ object FirJvmNameAndExposeChecker : FirBasicDeclarationChecker() {
         }
     }
 
-    fun CheckerContext.checkJvmExpose(jvmExpose: FirAnnotation, declaration: FirDeclaration, reporter: DiagnosticReporter) {
+    private fun CheckerContext.checkJvmExpose(jvmExpose: FirAnnotation, declaration: FirDeclaration, reporter: DiagnosticReporter) {
         val nameParameter = jvmExpose.findArgumentByName(StandardClassIds.Annotations.ParameterNames.jvmNameName) ?: return
 
         if (nameParameter.typeRef.coneType != session.builtinTypes.stringType.type) {
