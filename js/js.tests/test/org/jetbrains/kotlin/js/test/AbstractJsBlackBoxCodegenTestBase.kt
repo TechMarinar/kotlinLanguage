@@ -10,21 +10,25 @@ import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.BlackBoxCodegenSuppressor
-import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
-import org.jetbrains.kotlin.test.builders.classicFrontendHandlersStep
-import org.jetbrains.kotlin.test.builders.irHandlersStep
-import org.jetbrains.kotlin.test.builders.jsArtifactsHandlersStep
+import org.jetbrains.kotlin.test.builders.*
+import org.jetbrains.kotlin.test.directives.ConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.DIAGNOSTICS
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.*
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
 import org.jetbrains.kotlin.test.runners.codegen.commonClassicFrontendHandlersForCodegenTest
 import org.jetbrains.kotlin.test.services.JsLibraryProvider
+import org.jetbrains.kotlin.test.services.MetaTestConfigurator
+import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
+import org.jetbrains.kotlin.test.utils.isDirectiveDefined
 import java.lang.Boolean.getBoolean
 
 abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendOutput<R>, I : ResultingArtifact.BackendInput<I>, A : ResultingArtifact.Binary<A>>(
@@ -53,6 +57,8 @@ abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendO
     }
 
     protected fun TestConfigurationBuilder.commonConfigurationForJsBlackBoxCodegenTest() {
+        val isFir = targetFrontend == FrontendKinds.FIR
+
         globalDefaults {
             frontend = targetFrontend
             targetPlatform = JsPlatforms.defaultJsPlatform
@@ -66,9 +72,17 @@ abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendO
             JsEnvironmentConfigurationDirectives.PATH_TO_TEST_DIR with pathToTestDir
             JsEnvironmentConfigurationDirectives.TEST_GROUP_OUTPUT_DIR_PREFIX with testGroupOutputDirPrefix
             +JsEnvironmentConfigurationDirectives.TYPED_ARRAYS
-            +JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
+            if (!isFir) +JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
             if (skipMinification) +JsEnvironmentConfigurationDirectives.SKIP_MINIFICATION
             if (getBoolean("kotlin.js.ir.skipRegularMode")) +JsEnvironmentConfigurationDirectives.SKIP_REGULAR_MODE
+            if (isFir) {
+                +ConfigurationDirectives.WITH_STDLIB
+                +LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
+            }
+        }
+
+        if (isFir) {
+            useMetaTestConfigurators(::SkipMultiModuleTestsMetaConfigurator)
         }
 
         forTestsNotMatching("compiler/testData/codegen/box/diagnostics/functions/tailRecursion/*") {
@@ -93,26 +107,56 @@ abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendO
 
         useAdditionalService(::JsLibraryProvider)
 
-        useAfterAnalysisCheckers(
-            ::JsFailingTestSuppressor,
-            ::BlackBoxCodegenSuppressor,
-            ::JsArtifactsDumpHandler
-        )
-
-        facadeStep(frontendFacade)
-        classicFrontendHandlersStep {
-            commonClassicFrontendHandlersForCodegenTest()
-            useHandlers(::ClassicDiagnosticsHandler)
+        if (!isFir) {
+            useAfterAnalysisCheckers(
+                ::JsFailingTestSuppressor,
+                ::BlackBoxCodegenSuppressor,
+                ::JsArtifactsDumpHandler
+            )
         }
 
-        facadeStep(frontendToBackendConverter)
-        irHandlersStep()
+        facadeStep(frontendFacade)
 
-        facadeStep(backendFacade)
-        afterBackendFacade?.let { facadeStep(it) }
-        facadeStep(recompileFacade)
+        if (isFir) {
+            firHandlersStep {
+                useHandlers(
+                    ::FirDiagnosticsHandler,
+                    ::FirDumpHandler,
+                    ::FirCfgDumpHandler,
+                    ::FirCfgConsistencyHandler,
+                    ::FirNoImplicitTypesHandler,
+                )
+            }
+        } else {
+            classicFrontendHandlersStep {
+                commonClassicFrontendHandlersForCodegenTest()
+                useHandlers(::ClassicDiagnosticsHandler)
+            }
+        }
+
+        // There were some problems not covered by
+        // the FIR handlers above
+        facadeStep(frontendToBackendConverter)
+
+        if (!isFir) {
+            irHandlersStep()
+
+            facadeStep(backendFacade)
+            afterBackendFacade?.let { facadeStep(it) }
+            facadeStep(recompileFacade)
+        }
+
         jsArtifactsHandlersStep {
             useHandlers(::JsSourceMapPathRewriter)
+        }
+    }
+}
+
+
+private class SkipMultiModuleTestsMetaConfigurator(testServices: TestServices) : MetaTestConfigurator(testServices) {
+    override fun shouldSkipTest(): Boolean {
+        return testServices.moduleStructure.originalTestDataFiles.any {
+            it.isDirectiveDefined("// IGNORE_FIR")
         }
     }
 }

@@ -120,7 +120,7 @@ fun main(args: Array<String>) {
                 model("lineNumbers/")
             }
 
-            testClass<AbstractFirJsTest> {
+            testClass<AbstractFirJsBoxTest> {
                 model("box/", pattern = "^([^_](.+))\\.kt$")
             }
         }
