@@ -13911,6 +13911,18 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
             }
 
             @Test
+            @TestMetadata("inferenceForkRegression.kt")
+            public void testInferenceForkRegression() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/inference/inferenceForkRegression.kt");
+            }
+
+            @Test
+            @TestMetadata("inferenceForkRegressionSimple.kt")
+            public void testInferenceForkRegressionSimple() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/inference/inferenceForkRegressionSimple.kt");
+            }
+
+            @Test
             @TestMetadata("intersectionTypeMultipleBoundsAsReceiver.kt")
             public void testIntersectionTypeMultipleBoundsAsReceiver() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/inference/intersectionTypeMultipleBoundsAsReceiver.kt");
