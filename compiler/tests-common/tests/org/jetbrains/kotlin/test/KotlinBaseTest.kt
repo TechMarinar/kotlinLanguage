@@ -68,14 +68,16 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
         backend: TargetBackend,
         classpath: List<File?>,
         javaSource: List<File?>,
-        testFilesWithConfigurationDirectives: List<TestFile>
+        testFilesWithConfigurationDirectives: List<TestFile>,
+        extraDirectives: Map<String, String> = emptyMap()
     ): CompilerConfiguration {
         val configuration = KotlinTestUtils.newConfiguration(kind, jdkKind, classpath, javaSource)
         configuration.put(JVMConfigurationKeys.IR, backend.isIR)
         updateConfigurationByDirectivesInTestFiles(
             testFilesWithConfigurationDirectives,
             configuration,
-            parseDirectivesPerFiles()
+            parseDirectivesPerFiles(),
+            extraDirectives
         )
         updateConfiguration(configuration)
         configureTestSpecific(configuration, testFilesWithConfigurationDirectives)
@@ -132,10 +134,12 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
         private fun updateConfigurationByDirectivesInTestFiles(
             testFilesWithConfigurationDirectives: List<TestFile>,
             configuration: CompilerConfiguration,
-            usePreparsedDirectives: Boolean
+            usePreparsedDirectives: Boolean,
+            extraDirectives: Map<String, String> = emptyMap()
         ) {
             var explicitLanguageVersionSettings: LanguageVersionSettings? = null
             val kotlinConfigurationFlags: MutableList<String> = ArrayList(0)
+            val addedDirectives = mutableSetOf<String>()
             for (testFile in testFilesWithConfigurationDirectives) {
                 val content = testFile.content
                 val directives = if (usePreparsedDirectives) testFile.directives else KotlinTestUtils.parseDirectives(content)
@@ -166,6 +170,15 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
                     """.trimIndent()
                     )
                 }
+
+                for ((key, value) in extraDirectives) {
+                    if (addedDirectives.add(key)) {
+                        if (directives.listValues(key)?.contains(value) != true) {
+                            directives.put(key, value)
+                        }
+                    }
+                }
+
                 val fileLanguageVersionSettings: LanguageVersionSettings? = parseLanguageVersionSettings(directives)
                 if (fileLanguageVersionSettings != null) {
                     assert(explicitLanguageVersionSettings == null) { "Should not specify !LANGUAGE directive twice" }

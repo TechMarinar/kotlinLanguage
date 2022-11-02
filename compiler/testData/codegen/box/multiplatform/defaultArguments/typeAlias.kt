@@ -1,4 +1,3 @@
-// !LANGUAGE: +MultiPlatformProjects
 // WITH_STDLIB
 // FILE: common.kt
 

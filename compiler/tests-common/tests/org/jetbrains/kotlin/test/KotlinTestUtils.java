@@ -325,37 +325,27 @@ public class KotlinTestUtils {
 
     @NotNull
     public static Directives parseDirectives(String expectedText, @NotNull Directives directives) {
+        return parseDirectives(expectedText, directives, false);
+    }
+
+    @NotNull
+    public static Directives parseDirectives(String expectedText, @NotNull Directives directives, boolean noDuplicates) {
         Matcher directiveMatcher = DIRECTIVE_PATTERN.matcher(expectedText);
         while (directiveMatcher.find()) {
             String name = directiveMatcher.group(1);
             String value = directiveMatcher.group(3);
-            directives.put(name, value);
+            if (noDuplicates) {
+                List<String> values = directives.listValues(name);
+                if (values == null) {
+                    directives.put(name, value);
+                } else if (!values.contains(value)) {
+                    values.add(value);
+                }
+            } else {
+                directives.put(name, value);
+            }
         }
         return directives;
-    }
-
-    public static List<String> loadBeforeAfterText(String filePath) {
-        String content;
-
-        try {
-            content = FileUtil.loadFile(new File(filePath), true);
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        List<String> files = TestFiles.createTestFiles("", content, new TestFiles.TestFileFactoryNoModules<String>() {
-            @NotNull
-            @Override
-            public String create(@NotNull String fileName, @NotNull String text, @NotNull Directives directives) {
-                int firstLineEnd = text.indexOf('\n');
-                return StringUtil.trimTrailing(text.substring(firstLineEnd + 1));
-            }
-        });
-
-        Assert.assertTrue("Exactly two files expected: ", files.size() == 2);
-
-        return files;
     }
 
     public enum CommentType {

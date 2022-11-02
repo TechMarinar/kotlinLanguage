@@ -743,7 +743,8 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
             /* testFileName = */ DEFAULT_FILE_NAME,
             /* expectedText = */ originalTestDataFile.readText(),
             /* factory = */ testFileFactory,
-            /* preserveLocations = */ true
+            /* preserveLocations = */ true,
+            Directives()
         )
 
         private val lazyData: Triple<Map<String, ExtTestModule>, Map<ExtTestFile, KtFile>, MutableList<ExtTestFile>> by lazy {

@@ -37,18 +37,29 @@ public class TestFiles {
 
     @NotNull
     public static <M extends KotlinBaseTest.TestModule, F> List<F> createTestFiles(@Nullable String testFileName, String expectedText, TestFileFactory<M, F> factory) {
-        return createTestFiles(testFileName, expectedText, factory, false);
+        return createTestFiles(testFileName, expectedText, factory, new Directives());
+    }
+
+    @NotNull
+    public static <M extends KotlinBaseTest.TestModule, F> List<F> createTestFiles(@Nullable String testFileName, String expectedText, TestFileFactory<M, F> factory, Directives extraDirectives) {
+        return createTestFiles(testFileName, expectedText, factory, false, extraDirectives);
     }
 
     @NotNull
     public static <M extends KotlinBaseTest.TestModule, F> List<F> createTestFiles(String testFileName, String expectedText, TestFileFactory<M , F> factory,
-            boolean preserveLocations) {
-        return createTestFiles(testFileName, expectedText, factory, preserveLocations, false);
+            boolean preserveLocations, Directives extraDirectives) {
+        return createTestFiles(testFileName, expectedText, factory, preserveLocations, false, extraDirectives);
     }
 
     @NotNull
     public static <M extends KotlinBaseTest.TestModule, F> List<F> createTestFiles(String testFileName, String expectedText, TestFileFactory<M , F> factory,
             boolean preserveLocations, boolean parseDirectivesPerFile) {
+        return createTestFiles(testFileName, expectedText, factory, preserveLocations, parseDirectivesPerFile, new Directives());
+    }
+
+    @NotNull
+    public static <M extends KotlinBaseTest.TestModule, F> List<F> createTestFiles(String testFileName, String expectedText, TestFileFactory<M , F> factory,
+            boolean preserveLocations, boolean parseDirectivesPerFile, Directives extraDirectives) {
         Map<String, M> modules = new HashMap<>();
         List<F> testFiles = Lists.newArrayList();
         Matcher fileMatcher = FILE_PATTERN.matcher(expectedText);
@@ -61,11 +72,11 @@ public class TestFiles {
         if (!fileFound && !moduleFound) {
             assert testFileName != null : "testFileName should not be null if no FILE directive defined";
             // One file
-            testFiles.add(factory.createFile(null, testFileName, expectedText, parseDirectives(expectedText)));
+            testFiles.add(factory.createFile(null, testFileName, expectedText, parseDirectives(expectedText, extraDirectives, true)));
             commonPrefixOrWholeFile = expectedText;
         }
         else {
-            Directives allFilesOrCommonPrefixDirectives = parseDirectivesPerFile ? null : parseDirectives(expectedText);
+            Directives allFilesOrCommonPrefixDirectives = parseDirectivesPerFile ? null : parseDirectives(expectedText, extraDirectives, true);
             int processedChars = 0;
             M module = null;
             boolean firstFileProcessed = false;
@@ -119,9 +130,9 @@ public class TestFiles {
 
                     String expectedText1 = firstFileProcessed ? commonPrefixOrWholeFile + fileText : fileText;
                     testFiles.add(factory.createFile(module, fileName, fileText,
-                                                     parseDirectivesPerFile ?
-                                                     parseDirectives(expectedText1)
-                                                                            : allFilesOrCommonPrefixDirectives));
+                                                     parseDirectivesPerFile
+                                                     ? parseDirectives(expectedText1, !firstFileProcessed ? extraDirectives : new Directives(), true)
+                                                     : allFilesOrCommonPrefixDirectives));
                     processedChars = end;
                     firstFileProcessed = true;
                     if (!nextFileExists && !nextModuleExists) break;

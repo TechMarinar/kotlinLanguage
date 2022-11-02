@@ -1,4 +1,3 @@
-// !LANGUAGE: +MultiPlatformProjects
 // IGNORE_BACKEND: NATIVE
 // IGNORE_BACKEND_FIR: JVM_IR
 // FIR status: default argument mapping in MPP isn't designed yet

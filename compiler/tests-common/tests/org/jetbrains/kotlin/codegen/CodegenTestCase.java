@@ -92,7 +92,8 @@ public abstract class CodegenTestCase extends KotlinBaseTest<KotlinBaseTest.Test
                 getBackend(),
                 Collections.singletonList(getAnnotationsJar()),
                 ArraysKt.filterNotNull(javaSourceRoots),
-                testFilesWithConfigurationDirectives
+                testFilesWithConfigurationDirectives,
+                Collections.emptyMap()
         );
 
         myEnvironment = KotlinCoreEnvironment.createForTests(
@@ -405,10 +406,18 @@ public abstract class CodegenTestCase extends KotlinBaseTest<KotlinBaseTest.Test
     }
 
     protected void compile(@NotNull List<TestFile> files) {
-        compile(files, true, false);
+        compile(files, Collections.emptyMap());
+    }
+
+    protected void compile(@NotNull List<TestFile> files, Map<String, String> extraDirectives) {
+        compile(files, true, false, extraDirectives);
     }
 
     protected void compile(@NotNull List<TestFile> files, boolean reportProblems, boolean dumpKotlinFiles) {
+        compile(files, reportProblems, dumpKotlinFiles, Collections.emptyMap());
+    }
+
+    protected void compile(@NotNull List<TestFile> files, boolean reportProblems, boolean dumpKotlinFiles, Map<String, String> extraDirectives) {
         File javaSourceDir = writeJavaFiles(files);
 
         configurationKind = extractConfigurationKind(files);
@@ -417,7 +426,8 @@ public abstract class CodegenTestCase extends KotlinBaseTest<KotlinBaseTest.Test
                 configurationKind, getTestJdkKind(files), getBackend(),
                 Collections.singletonList(getAnnotationsJar()),
                 ArraysKt.filterNotNull(new File[] {javaSourceDir}),
-                files
+                files,
+                extraDirectives
         );
 
         myEnvironment = KotlinCoreEnvironment.createForTests(
@@ -533,7 +543,7 @@ public abstract class CodegenTestCase extends KotlinBaseTest<KotlinBaseTest.Test
     }
 
     @NotNull
-    public static List<TestFile> createTestFilesFromFile(
+    private static List<TestFile> createTestFilesFromFile(
             @NotNull File file,
             @NotNull String expectedText,
             boolean parseDirectivesPerFiles,
@@ -546,7 +556,7 @@ public abstract class CodegenTestCase extends KotlinBaseTest<KotlinBaseTest.Test
                     public TestFile create(@NotNull String fileName, @NotNull String text, @NotNull Directives directives) {
                         return new TestFile(fileName, text, directives);
                     }
-                }, false, parseDirectivesPerFiles);
+                }, false, parseDirectivesPerFiles, new Directives());
         if (InTextDirectivesUtils.isDirectiveDefined(expectedText, "WITH_HELPERS")) {
             testFiles.add(new TestFile("CodegenTestHelpers.kt", TestHelperGeneratorKt.createTextForCodegenTestHelpers(backend)));
         }

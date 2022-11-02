@@ -1,5 +1,4 @@
 // TARGET_BACKEND: JVM
-// !LANGUAGE: +MultiPlatformProjects
 // WITH_REFLECT
 
 // MODULE: lib
