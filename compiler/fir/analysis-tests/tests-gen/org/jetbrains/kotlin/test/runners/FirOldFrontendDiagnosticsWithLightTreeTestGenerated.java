@@ -15943,6 +15943,28 @@ public class FirOldFrontendDiagnosticsWithLightTreeTestGenerated extends Abstrac
             }
 
             @Nested
+            @TestMetadata("compiler/testData/diagnostics/tests/inference/forks")
+            @TestDataPath("$PROJECT_ROOT")
+            public class Forks {
+                @Test
+                public void testAllFilesPresentInForks() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/inference/forks"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), true);
+                }
+
+                @Test
+                @TestMetadata("nestedCallVariableFixation.kt")
+                public void testNestedCallVariableFixation() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/inference/forks/nestedCallVariableFixation.kt");
+                }
+
+                @Test
+                @TestMetadata("nestedCallVariableFixationSimple.kt")
+                public void testNestedCallVariableFixationSimple() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/inference/forks/nestedCallVariableFixationSimple.kt");
+                }
+            }
+
+            @Nested
             @TestMetadata("compiler/testData/diagnostics/tests/inference/nestedCalls")
             @TestDataPath("$PROJECT_ROOT")
             public class NestedCalls {
