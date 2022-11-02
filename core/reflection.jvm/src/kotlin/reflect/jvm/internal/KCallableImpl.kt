@@ -112,10 +112,17 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
         return if (isAnnotationConstructor) callAnnotationConstructor(args) else callDefaultMethod(args, null)
     }
 
+    private val _parameterSizeWithContinuation = ReflectProperties.lazySoft {
+        parameters.size + (if (isSuspend) 1 else 0)
+    }
+
     private val _absentArguments = ReflectProperties.lazySoft {
-        val parameters = parameters
-        // arguments without masks and DefaultConstructorMarker or MethodHandle
-        val arguments = arrayOfNulls<Any?>(parameters.size + (if (isSuspend) 1 else 0))
+        val parameterSize = _parameterSizeWithContinuation()
+        val maskSize = (parameters.size + Integer.SIZE - 1) / Integer.SIZE
+
+        // arguments with masks and DefaultConstructorMarker or MethodHandle
+        // +1 is argument for DefaultConstructorMarker or MethodHandle
+        val arguments = arrayOfNulls<Any?>(parameterSize + maskSize + 1)
 
         // set absent values
         parameters.forEach { parameter ->
@@ -128,6 +135,10 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
             }
         }
 
+        for (i in 0 until maskSize) {
+            arguments[parameterSize + i] = 0
+        }
+
         arguments
     }
 
@@ -136,6 +147,7 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
     // See ArgumentGenerator#generate
     internal fun callDefaultMethod(args: Map<KParameter, Any?>, continuationArgument: Continuation<*>?): R {
         val parameters = parameters
+        val parameterSize = _parameterSizeWithContinuation()
 
         val arguments = getAbsentArguments().apply {
             if (isSuspend) {
@@ -143,7 +155,6 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
                 this[parameters.size] = continuationArgument
             }
         }
-        val masks = IntArray((parameters.size + Integer.SIZE - 1) / Integer.SIZE)
 
         var valueParameterIndex = 0
         var anyOptional = false
@@ -155,8 +166,8 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
                 }
                 // Absent value is already set at _absentArguments
                 parameter.isOptional -> {
-                    val maskIndex = valueParameterIndex / Integer.SIZE
-                    masks[maskIndex] = masks[maskIndex] or (1 shl (valueParameterIndex % Integer.SIZE))
+                    val maskIndex = parameterSize + (valueParameterIndex / Integer.SIZE)
+                    arguments[maskIndex] = (arguments[maskIndex] as Int) or (1 shl (valueParameterIndex % Integer.SIZE))
                     anyOptional = true
                 }
                 parameter.isVararg -> {}
@@ -171,21 +182,17 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
         }
 
         if (!anyOptional) {
-            return call(*arguments)
+            // The process is the same as call,
+            // but it is called directly to avoid the processing cost of spread operator.
+            @Suppress("UNCHECKED_CAST")
+            return caller.call(arguments.copyOf(parameterSize)) as R
         }
 
         val caller = defaultCaller ?: throw KotlinReflectionInternalError("This callable does not support a default call: $descriptor")
 
         @Suppress("UNCHECKED_CAST")
         return reflectionCall {
-            // +1 is argument for DefaultConstructorMarker or MethodHandle
-            val mergedArgs = arrayOfNulls<Any?>(arguments.size + masks.size + 1)
-            System.arraycopy(arguments, 0, mergedArgs, 0, arguments.size)
-            for (i in masks.indices) {
-                mergedArgs[i + arguments.size] = masks[i]
-            }
-
-            caller.call(mergedArgs) as R
+            caller.call(arguments) as R
         }
     }
 
