@@ -43,10 +43,7 @@ abstract class AbstractJvmBlackBoxCodegenTestBase<R : ResultingArtifact.Frontend
 
     override fun TestConfigurationBuilder.configuration() {
         commonConfigurationForTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade, isCodegenTest = true)
-        setUp()
-    }
 
-    protected fun TestConfigurationBuilder.setUp() {
         configureClassicFrontendHandlersStep {
             useHandlers(
                 ::ClassicDiagnosticsHandler

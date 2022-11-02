@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.state.GenerationState
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.container.get
 import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
@@ -23,8 +24,10 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.CompilerEnvironment
 import org.jetbrains.kotlin.resolve.lazy.declarations.FileBasedDeclarationProviderFactory
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
-import org.jetbrains.kotlin.test.backend.ir.JvmKLibArtifact
-import org.jetbrains.kotlin.test.model.*
+import org.jetbrains.kotlin.test.model.BackendKinds
+import org.jetbrains.kotlin.test.model.Frontend2BackendConverter
+import org.jetbrains.kotlin.test.model.FrontendKinds
+import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
 import org.jetbrains.kotlin.test.services.dependencyProvider
@@ -43,13 +46,16 @@ class Fir2IrResultsConverter(
         val compilerConfigurationProvider = testServices.compilerConfigurationProvider
         val configuration = compilerConfigurationProvider.getCompilerConfiguration(module)
 
-        val dependencyProvider = testServices.dependencyProvider
         val dependentComponents = mutableListOf<Fir2IrComponents>()
-        for (dependency in module.dependsOnDependencies) {
-            val testModule = dependencyProvider.getTestModule(dependency.moduleName)
-            val artifact = dependencyProvider.getArtifact(testModule, ArtifactKinds.KLib)
-            if (artifact is JvmKLibArtifact) {
-                artifact.components?.let { dependentComponents.add(it) }
+        if (module.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects)) {
+            val dependencyProvider = testServices.dependencyProvider
+
+            for (dependency in module.dependsOnDependencies) {
+                val testModule = dependencyProvider.getTestModule(dependency.moduleName)
+                val artifact = dependencyProvider.getArtifact(testModule, BackendKinds.IrBackend)
+                if (artifact is IrBackendInput.JvmIrBackendInput) {
+                    artifact.components?.let { dependentComponents.add(it) }
+                }
             }
         }
 

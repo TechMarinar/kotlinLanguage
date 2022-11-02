@@ -135,7 +135,7 @@ class JsIrBackendFacade(
 
         val loweredIr = compileIr(
             irModuleFragment.apply { resolveTestPathes() },
-            MainModule.Klib(inputArtifact.outputFile!!.absolutePath),
+            MainModule.Klib(inputArtifact.outputFile.absolutePath),
             configuration,
             dependencyModules.apply { forEach { it.resolveTestPathes() } },
             emptyMap(),
