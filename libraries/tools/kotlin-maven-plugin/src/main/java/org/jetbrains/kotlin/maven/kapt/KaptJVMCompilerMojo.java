@@ -220,6 +220,15 @@ public class KaptJVMCompilerMojo extends K2JVMCompileMojo {
             getLog().warn("Can't determine Java home, 'java.home' property does not exist");
             return null;
         }
+
+        val jdkVersion = try {
+            System.getProperty("java.specification.version")?.toInt()
+        } catch (e: NumberFormatException) {
+            // we got 1.8 or 1.6
+            null
+        } ?: 0
+        if(jdkVersion >= 9) return null
+
         File javaHome = new File(javaHomePath);
         File toolsJar = new File(javaHome, "lib/tools.jar");
         if (toolsJar.exists()) {
