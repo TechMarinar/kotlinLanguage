@@ -50,6 +50,7 @@ abstract class FirBasedSymbol<E : FirDeclaration> {
         get() = fir.resolvedAnnotationClassIds(this)
 }
 
+@SymbolInternals
 fun FirAnnotationContainer.resolvedAnnotationsWithArguments(anchorElement: FirBasedSymbol<*>): List<FirAnnotation> {
     // NB: annotation argument mapping (w/ vararg) are built/replaced during call completion, hence BODY_RESOLVE.
     // TODO(KT-53371): optimize ARGUMENTS_OF_ANNOTATIONS to build annotation argument mapping too.
@@ -58,11 +59,13 @@ fun FirAnnotationContainer.resolvedAnnotationsWithArguments(anchorElement: FirBa
     return annotations
 }
 
+@SymbolInternals
 fun FirAnnotationContainer.resolvedAnnotationsWithClassIds(anchorElement: FirBasedSymbol<*>): List<FirAnnotation> {
     anchorElement.lazyResolveToPhase(FirResolvePhase.TYPES)
     return annotations
 }
 
+@SymbolInternals
 fun FirAnnotationContainer.resolvedAnnotationClassIds(anchorElement: FirBasedSymbol<*>): List<ClassId> {
     anchorElement.lazyResolveToPhase(FirResolvePhase.TYPES)
     return annotations.mapNotNull { (it.annotationTypeRef.coneType as? ConeClassLikeType)?.lookupTag?.classId }
