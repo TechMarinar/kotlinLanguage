@@ -208,6 +208,7 @@ fun translateCall(
 
         if (
             currentDispatchReceiver != null &&
+            function.origin != IrDeclarationOrigin.LOWERED_SUSPEND_FUNCTION &&
             context.staticContext.backendContext.es6mode &&
             !klass.isInterface &&
             !currentDispatchReceiver.isInner &&
