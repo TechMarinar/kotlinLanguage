@@ -56,6 +56,13 @@ class SerializableIrGenerator(
 
     private val IrClass.isInternalSerializable: Boolean get() = kind == ClassKind.CLASS && hasSerializableOrMetaAnnotationWithoutArgs()
 
+    private val cacheableChildSerializers: List<IrExpression?> =
+        irClass.companionObject()!!.createCacheableChildSerializers(properties.serializableProperties)
+
+    private val cachedChildSerializersProperty: IrProperty? =
+        irClass.companionObject()!!.addCachedChildSerializersProperty(cacheableChildSerializers)
+
+
     fun generateInternalConstructor(constructorDescriptor: IrConstructor) =
         addFunctionBody(constructorDescriptor) { ctor ->
             val thiz = irClass.thisReceiver!!
@@ -200,10 +207,10 @@ class SerializableIrGenerator(
         return irGetField(irGetObject(companionObject), property.backingField!!)
     }
 
-    private fun IrBlockBodyBuilder.createCachedDescriptorProperty(companionObject: IrClass): IrProperty {
+    private fun createCachedDescriptorProperty(companionObject: IrClass): IrProperty {
         val serialDescIrType = serialDescriptorClass.defaultType
 
-        return createCompanionValProperty(companionObject, serialDescIrType, CACHED_DESCRIPTOR_FIELD_NAME) {
+        return companionObject.addValProperty(serialDescIrType, CACHED_DESCRIPTOR_FIELD_NAME) {
             val serialDescVar = irTemporary(
                 getInstantiateDescriptorExpr(),
                 nameHint = "serialDesc"
@@ -342,10 +349,15 @@ class SerializableIrGenerator(
                 }
             }
 
+            val cachedChildSerializerByIndex = createCacheableChildSerializersFactory(
+                cachedChildSerializersProperty,
+                cacheableChildSerializers
+            ) { irClass.companionObject()!! }
+
             serializeAllProperties(
                 serializableProperties, objectToSerialize,
                 localOutput, localSerialDesc, kOutputClass,
-                ignoreIndexTo, initializerAdapter
+                ignoreIndexTo, initializerAdapter, cachedChildSerializerByIndex,
             ) { it, _ ->
                 irGet(writeSelfFunction.valueParameters[3 + it])
             }

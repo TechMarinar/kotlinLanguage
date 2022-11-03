@@ -5,17 +5,14 @@
 
 package org.jetbrains.kotlinx.serialization.compiler.backend.ir
 
+import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irIfThen
 import org.jetbrains.kotlin.backend.jvm.functionByName
 import org.jetbrains.kotlin.backend.jvm.ir.fileParent
 import org.jetbrains.kotlin.backend.jvm.ir.representativeUpperBound
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrValueDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrValueParameter
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.deepCopyWithVariables
 import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.expressions.IrExpression
@@ -178,6 +175,7 @@ abstract class BaseIrGenerator(private val currentClass: IrClass, final override
         kOutputClass: IrClassSymbol,
         ignoreIndexTo: Int,
         initializerAdapter: (IrExpressionBody) -> IrExpression,
+        cachedChildSerializerByIndex: (Int) -> IrExpression?,
         genericGetter: ((Int, IrType) -> IrExpression)?
     ) {
 
@@ -212,6 +210,7 @@ abstract class BaseIrGenerator(private val currentClass: IrClass, final override
                     if (it.elementMethodPrefix != "Unit") args.add(property.irGet())
                     f to args
                 },
+                cachedChildSerializerByIndex(index),
                 genericGetter
             )
 
@@ -249,11 +248,12 @@ abstract class BaseIrGenerator(private val currentClass: IrClass, final override
         property: IrSerializableProperty,
         whenHaveSerializer: (serializer: IrExpression, sti: IrSerialTypeInfo) -> FunctionWithArgs,
         whenDoNot: (sti: IrSerialTypeInfo) -> FunctionWithArgs,
+        cachedSerializer: IrExpression?,
         genericGetter: ((Int, IrType) -> IrExpression)? = null,
         returnTypeHint: IrType? = null
     ): IrExpression {
         val sti = getIrSerialTypeInfo(property, compilerContext)
-        val innerSerial = serializerInstance(
+        val innerSerial = cachedSerializer ?: serializerInstance(
             sti.serializer,
             compilerContext,
             property.type,
@@ -305,24 +305,33 @@ abstract class BaseIrGenerator(private val currentClass: IrClass, final override
     fun IrBuilderWithScope.serializerTower(
         generator: SerializerIrGenerator,
         dispatchReceiverParameter: IrValueParameter,
-        property: IrSerializableProperty
+        property: IrSerializableProperty,
+        cachedSerializer: IrExpression?
     ): IrExpression? {
         val nullableSerClass = compilerContext.referenceProperties(SerialEntityNames.wrapIntoNullableCallableId).single()
-        val serializer =
-            property.serializableWith(compilerContext)
-                ?: if (!property.type.isTypeParameter()) generator.findTypeSerializerOrContext(
-                    compilerContext,
-                    property.type
-                ) else null
-        return serializerInstance(
-            serializer,
-            compilerContext,
-            property.type,
-            genericIndex = property.genericIndex
-        ) { it, _ ->
-            val ir = generator.localSerializersFieldsDescriptors[it]
-            irGetField(irGet(dispatchReceiverParameter), ir.backingField!!)
-        }?.let { expr -> wrapWithNullableSerializerIfNeeded(property.type, expr, nullableSerClass) }
+
+        val serializerExpression = if (cachedSerializer != null) {
+            cachedSerializer
+        } else {
+            val serializerClassSymbol =
+                property.serializableWith(compilerContext)
+                    ?: if (!property.type.isTypeParameter()) generator.findTypeSerializerOrContext(
+                        compilerContext,
+                        property.type
+                    ) else null
+
+            serializerInstance(
+                serializerClassSymbol,
+                compilerContext,
+                property.type,
+                genericIndex = property.genericIndex
+            ) { it, _ ->
+                val ir = generator.localSerializersFieldsDescriptors[it]
+                irGetField(irGet(dispatchReceiverParameter), ir.backingField!!)
+            }
+        }
+
+        return serializerExpression?.let { expr -> wrapWithNullableSerializerIfNeeded(property.type, expr, nullableSerClass) }
     }
 
     private fun IrBuilderWithScope.wrapWithNullableSerializerIfNeeded(
@@ -356,6 +365,70 @@ abstract class BaseIrGenerator(private val currentClass: IrClass, final override
             kSerClass, hasQuestionMark = false, arguments = listOf(
                 makeTypeProjection(type, variance)
             ), annotations = emptyList()
+        )
+    }
+
+    internal fun IrClass.addCachedChildSerializersProperty(cacheableSerializers: List<IrExpression?>): IrProperty? {
+        // if all child serializers are null (non-cacheable) we don't need to create a property
+        cacheableSerializers.firstOrNull { it != null } ?: return null
+
+        val kSerializerType =
+            compilerContext.kSerializerClass.defaultType
+                .substitute(mapOf(compilerContext.kSerializerClass.typeParameters[0].symbol to compilerContext.irBuiltIns.anyType))
+
+        val arrayType = compilerContext.irBuiltIns.arrayClass.typeWith(kSerializerType)
+
+        return addValProperty(arrayType, SerialEntityNames.CACHED_CHILD_SERIALIZERS_PROPERTY_NAME) {
+            +createArrayOfExpression(kSerializerType, cacheableSerializers.map { it ?: irNull() })
+        }
+    }
+
+    /**
+     * Factory to getting cached serializers via variable.
+     * Must be used only in one place because for each factory creates one variable.
+     *
+     * Class from [containingClassProducer] used only if [cacheProperty] is not null.
+     */
+    internal fun IrStatementsBuilder<*>.createCacheableChildSerializersFactory(
+        cacheProperty: IrProperty?,
+        cacheableSerializers: List<IrExpression?>,
+        containingClassProducer: () -> IrClass
+    ): (Int) -> IrExpression? {
+        cacheProperty ?: return { null }
+
+        val variable =
+            irTemporary(irInvoke(irGetObject(containingClassProducer()), cacheProperty.getter!!.symbol), "cached")
+
+        return { index: Int ->
+            if (cacheableSerializers[index] != null) {
+                irInvoke(irGet(variable), compilerContext.arrayValueGetter.symbol, irInt(index))
+            } else {
+                null
+            }
+        }
+    }
+
+    fun IrClass.createCacheableChildSerializers(
+        serializableProperties: List<IrSerializableProperty>
+    ): List<IrExpression?> {
+        return DeclarationIrBuilder(compilerContext, symbol).run {
+            serializableProperties.map { cacheableChildSerializerInstance(compilerContext, it) }
+        }
+    }
+
+    private fun IrBuilderWithScope.cacheableChildSerializerInstance(
+        compilerContext: SerializationPluginContext,
+        property: IrSerializableProperty
+    ): IrExpression? {
+        val serializer = getIrSerialTypeInfo(property, compilerContext).serializer ?: return null
+        if (serializer.owner.kind == ClassKind.OBJECT) return null
+
+        return serializerInstance(
+            serializer,
+            compilerContext,
+            property.type,
+            null,
+            null
         )
     }
 
