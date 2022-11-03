@@ -44,8 +44,15 @@ internal class PartialLinkageSupportImpl(builtIns: IrBuiltIns, messageLogger: Ir
     }
 
     override fun generateStubsAndPatchUsages(symbolTable: SymbolTable, roots: () -> Collection<IrElement>) {
+        val allUnbound = symbolTable.allUnbound
+        val allUnboundEx = symbolTable.allUnboundEx
+        val missing = allUnboundEx - allUnbound
+        val testMethod = Throwable().stackTrace.firstNotNullOf { it.methodName.takeIf { it.startsWith("test") } }
+        if (missing.isNotEmpty() && testMethod.isNotEmpty())
+            print("")
+
         // Generate stubs.
-        for (symbol in symbolTable.allUnbound) {
+        for (symbol in allUnbound) {
             stubGenerator.getDeclaration(symbol)
         }
 
