@@ -389,6 +389,9 @@ internal fun Project.usageByName(usageName: String): Usage =
 internal fun Project.categoryByName(categoryName: String): Category =
     objects.named(Category::class.java, categoryName)
 
+internal inline fun <reified T: Named> Project.attributeValueByName(attributeValueName: String): T =
+    objects.named(T::class.java, attributeValueName)
+
 fun Configuration.usesPlatformOf(target: KotlinTarget): Configuration {
     attributes.attribute(KotlinPlatformType.attribute, target.platformType)
 

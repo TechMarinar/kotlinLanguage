@@ -41,9 +41,6 @@ private fun createRootPublication(project: Project, publishing: PublishingExtens
         from(kotlinSoftwareComponent)
         (this as MavenPublicationInternal).publishWithOriginalFileName()
         kotlinSoftwareComponent.publicationDelegate = this@apply
-        kotlinSoftwareComponent.sourcesArtifacts.forEach { sourceArtifact ->
-            artifact(sourceArtifact)
-        }
 
         addKotlinToolingMetadataArtifactIfNeeded(project)
     }
@@ -82,9 +79,6 @@ private fun AbstractKotlinTarget.createMavenPublications(publications: Publicati
                 // do this in whenEvaluated since older Gradle versions seem to check the files in the variant eagerly:
                 project.whenEvaluated {
                     from(gradleComponent)
-                    kotlinComponent.sourcesArtifacts.forEach { sourceArtifact ->
-                        artifact(sourceArtifact)
-                    }
                 }
                 (this as MavenPublicationInternal).publishWithOriginalFileName()
                 artifactId = kotlinComponent.defaultArtifactId

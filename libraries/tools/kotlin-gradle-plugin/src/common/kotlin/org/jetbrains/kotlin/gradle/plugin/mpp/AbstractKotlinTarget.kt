@@ -8,10 +8,11 @@ import org.gradle.api.Action
 import org.gradle.api.DomainObjectSet
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ConfigurablePublishArtifact
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.PublishArtifact
-import org.gradle.api.attributes.Attribute
-import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.attributes.*
 import org.gradle.api.attributes.Usage.JAVA_RUNTIME_JARS
+import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
 import org.gradle.api.component.ComponentWithCoordinates
 import org.gradle.api.component.ComponentWithVariants
 import org.gradle.api.component.SoftwareComponent
@@ -20,17 +21,12 @@ import org.gradle.api.internal.component.SoftwareComponentInternal
 import org.gradle.api.internal.component.UsageContext
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.api.tasks.TaskProvider
-import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
-import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetContainerDsl
-import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetDsl
-import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
-import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
-import org.jetbrains.kotlin.gradle.tasks.dependsOn
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.copyAttributes
 import org.jetbrains.kotlin.gradle.utils.dashSeparatedName
+import org.jetbrains.kotlin.gradle.utils.getOrCreate
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 
 internal const val PRIMARY_SINGLE_COMPONENT_NAME = "kotlin"
@@ -87,6 +83,34 @@ abstract class AbstractKotlinTarget(
         buildAdhocComponentsFromKotlinVariants(kotlinComponents)
     }
 
+    protected open fun maybeCreateSourcesVariantConfiguration(
+        sourcesArtifacts: Iterable<PublishArtifact>
+    ): Configuration {
+        val apiConfiguration = project.configurations.getByName(apiElementsConfigurationName)
+        val sourcesVariantConfigurationName = publishedSourcesConfigurationName(apiElementsConfigurationName)
+        val variantConfiguration = project.configurations.getOrCreate(
+            sourcesVariantConfigurationName,
+            invokeWhenCreated = { configuration ->
+                configuration.isVisible = false
+                configuration.isCanBeConsumed = true
+                configuration.isCanBeResolved = false
+                configuration.description = "Sources of ${targetName}"
+
+                copyPublishableAttributes(apiConfiguration.attributes, configuration.attributes)
+                configuration.attributes {
+                    it.attribute(Category.CATEGORY_ATTRIBUTE, project.attributeValueByName(Category.DOCUMENTATION))
+                    it.attribute(DocsType.DOCS_TYPE_ATTRIBUTE, project.attributeValueByName(DocsType.SOURCES))
+                    it.attribute(USAGE_ATTRIBUTE, project.attributeValueByName(Usage.JAVA_RUNTIME))
+                    it.attribute(Bundling.BUNDLING_ATTRIBUTE, project.attributeValueByName(Bundling.EXTERNAL))
+                }
+            }
+        )
+
+        variantConfiguration.outgoing.artifacts.addAll(sourcesArtifacts)
+
+        return variantConfiguration
+    }
+
     private fun buildAdhocComponentsFromKotlinVariants(kotlinVariants: Set<KotlinTargetComponent>): Set<SoftwareComponent> {
         val softwareComponentFactoryClass = SoftwareComponentFactory::class.java
         // TODO replace internal API access with injection (not possible until we have this class on the compile classpath)
@@ -123,6 +147,11 @@ abstract class AbstractKotlinTarget(
                         }
                         configurationVariantDetails.mapToMavenScope(mavenScope)
                     }
+                }
+
+                val sourcesVariantConfiguration = maybeCreateSourcesVariantConfiguration(kotlinVariant.sourcesArtifacts)
+                adhocVariant.addVariantsFromConfiguration(sourcesVariantConfiguration) { configurationVariantDetails ->
+                    configurationVariantDetails.mapToMavenScope("runtime")
                 }
             }
 
@@ -220,6 +249,7 @@ abstract class AbstractKotlinTarget(
 private val publishedConfigurationNameSuffix = "-published"
 
 internal fun publishedConfigurationName(originalVariantName: String) = originalVariantName + publishedConfigurationNameSuffix
+internal fun publishedSourcesConfigurationName(originalVariantName: String) = lowerCamelCaseName(originalVariantName, "sources")
 internal fun originalVariantNameFromPublished(publishedConfigurationName: String): String? =
     publishedConfigurationName.takeIf { it.endsWith(publishedConfigurationNameSuffix) }?.removeSuffix(publishedConfigurationNameSuffix)
 
