@@ -114,6 +114,13 @@ class DelegatedProperties {
         assertEquals("bbb", clazz.c)
     }
 
+    fun testDelegatedVariablesFlow() {
+        _a.lazySet(55)
+        assertEquals(55, _a.value)
+        assertEquals(55, a)
+        var aValue = a
+    }
+
     fun test() {
         testDelegatedAtomicInt()
         testDelegatedAtomicLong()
@@ -124,6 +131,7 @@ class DelegatedProperties {
         testVolatileLong()
         testVolatileRef()
         testScopedDelegatedProperties()
+        testDelegatedVariablesFlow()
     }
 }
 
