@@ -123,11 +123,7 @@ fun translateFunction(declaration: IrFunction, name: JsName?, context: JsGenerat
     val function = JsFunction(emptyScope, body, "member function ${name ?: "annon"}")
         .withSource(declaration, context, useNameOf = declaration)
 
-    function.name = if (context.staticContext.backendContext.es6mode && name?.ident?.isValidES5Identifier() == false) {
-        JsName("'${name.ident}'", name.isTemporary)
-    } else {
-        name
-    }
+    function.name = name
 
     fun JsFunction.addParameter(parameter: JsName) {
         parameters.add(JsParameter(parameter))
