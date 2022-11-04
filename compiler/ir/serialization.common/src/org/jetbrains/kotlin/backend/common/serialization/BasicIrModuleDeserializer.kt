@@ -104,6 +104,9 @@ abstract class BasicIrModuleDeserializer(
         fileLocalDeserializationState.addIdSignature(topLevelSignature)
         moduleDeserializationState.enqueueFile(fileLocalDeserializationState)
 
+        if (idSig.render().startsWith("/A.exp_foo.<get-exp_foo>"))
+            print("")
+
         return fileLocalDeserializationState.fileDeserializer.symbolDeserializer.deserializeIrSymbol(idSig, symbolKind)
     }
 

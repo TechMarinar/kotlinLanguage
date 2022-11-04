@@ -89,6 +89,9 @@ class IdSignatureDeserializer(
             ProtoIdSignature.IdSigCase.LOCAL_SIG -> deserializeLocalIdSignature(proto.localSig)
             ProtoIdSignature.IdSigCase.FILE_SIG -> deserializeFileIdSignature(proto.fileSig)
             else -> error("Unexpected IdSignature kind: ${proto.idSigCase}")
+        }.also {
+            if (it.render().startsWith("/A.exp_foo.<get-exp_foo>"))
+                print("")
         }
     }
 
