@@ -315,7 +315,7 @@ enum class LanguageFeature(
     ValueClasses(sinceVersion = null, kind = UNSTABLE_FEATURE),
     JavaSamConversionEqualsHashCode(sinceVersion = null, kind = UNSTABLE_FEATURE),
     UnitConversionsOnArbitraryExpressions(sinceVersion = null),
-    SafeExternalEnums(sinceVersion = null, defaultState = State.DISABLED), // KT-30810
+    SafeExternalEnums(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-30810
     ;
 
     init {
