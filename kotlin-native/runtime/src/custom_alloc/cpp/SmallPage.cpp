@@ -14,19 +14,19 @@ namespace alloc {
 
 SmallPage::SmallPage(uint32_t blockSize) noexcept : blockSize_(blockSize) {
     CustomInfo("SmallPage(%p)::SmallPage(%u)", this, blockSize);
-    free_.next = 0;
-    uint64_t end = SMALL_PAGE_CELL_COUNT + 1 - blockSize_;
-    for (uint64_t i = 0 ; i < end ; i += blockSize) {
-        cells_[i].next = i + blockSize;
+    nextFree_ = cells_;
+    SmallCell* end = cells_ + (SMALL_PAGE_CELL_COUNT + 1 - blockSize_);
+    for (SmallCell* cell = cells_; cell < end; cell = cell->nextFree) {
+        cell->nextFree = cell + blockSize;
     }
 }
 
 SmallCell* SmallPage::TryAllocate() noexcept {
-    if (free_.next + blockSize_ > SMALL_PAGE_CELL_COUNT) {
+    if (nextFree_ + blockSize_ > cells_ + SMALL_PAGE_CELL_COUNT) {
         return nullptr;
     }
-    SmallCell* freeBlock = cells_ + free_.next;
-    free_.next = freeBlock->next;
+    SmallCell* freeBlock = nextFree_;
+    nextFree_ = freeBlock->nextFree;
     CustomDebug("SmallPage(%p){%u}::TryAllocate() = %p", this, blockSize_, freeBlock);
     return freeBlock;
 }
@@ -35,24 +35,24 @@ bool SmallPage::Sweep() noexcept {
     CustomInfo("SmallPage(%p)::Sweep()", this);
     // `end` is after the last legal allocation of a block, but does not
     // necessarily match an actual block starting point.
-    uint64_t end = SMALL_PAGE_CELL_COUNT + 1 - blockSize_;
+    SmallCell* end = cells_ + (SMALL_PAGE_CELL_COUNT + 1 - blockSize_);
     bool alive = false;
-    uint64_t block = 0;
-    uint64_t* nextFree = &free_.next;
+    SmallCell* block = cells_;
+    SmallCell** nextFree = &nextFree_;
     while (block < end) {
         while (block != *nextFree) {
-            SmallCell* cell = cells_ + block;
-            if (!TryResetMark(cells_ + block)) {
-                cell->next = *nextFree;
+            SmallCell* cell = block;
+            if (!TryResetMark(block)) {
+                cell->nextFree = *nextFree;
                 *nextFree = block;
-                nextFree = &cell->next;
+                nextFree = &cell->nextFree;
             } else {
                 alive = true;
             }
             block += blockSize_;
         }
         if (block >= end) break;
-        nextFree = &cells_[block].next;
+        nextFree = &block->nextFree;
         block += blockSize_;
     }
     return alive;

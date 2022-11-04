@@ -4,6 +4,7 @@
 #define CUSTOM_ALLOC_CPP_SMALLPAGE_HPP_
 
 #include <atomic>
+#include <cstdint>
 
 #include "AtomicStack.hpp"
 #include "GCApi.hpp"
@@ -16,10 +17,10 @@ namespace alloc {
 #define SMALL_PAGE_MAX_BLOCK_SIZE 128
 #define SMALL_PAGE_CELL_COUNT ((SMALL_PAGE_SIZE-sizeof(SmallPage))/sizeof(SmallCell))
 
-struct SmallCell {
+struct alignas(8) SmallCell {
     void* Data() { return this; }
 
-    uint64_t next;
+    SmallCell* nextFree;
 };
 
 class alignas(8) SmallPage {
@@ -43,7 +44,7 @@ private:
     // Used for linking pages together in `pages` queue or in `unswept` queue.
     SmallPage* next_;
     uint32_t blockSize_;
-    SmallCell free_;
+    SmallCell* nextFree_;
     SmallCell cells_[];
 };
 
