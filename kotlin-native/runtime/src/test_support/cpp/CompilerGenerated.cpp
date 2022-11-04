@@ -235,7 +235,7 @@ void Kotlin_Internal_GC_GCInfoBuilder_setPauseStartTime(KRef thiz, KLong value) 
 void Kotlin_Internal_GC_GCInfoBuilder_setPauseEndTime(KRef thiz, KLong value) {
     throw std::runtime_error("Not implemented for tests");
 }
-void Kotlin_Internal_GC_GCInfoBuilder_setFinalizersDoneTime(KRef thiz, KLong value) {
+void Kotlin_Internal_GC_GCInfoBuilder_setPostGcCleanupTime(KRef thiz, KLong value) {
     throw std::runtime_error("Not implemented for tests");
 }
 void Kotlin_Internal_GC_GCInfoBuilder_setRootSet(KRef thiz, KLong threadLocalReferences, KLong stackReferences, KLong globalReferences, KLong stableReferences) {

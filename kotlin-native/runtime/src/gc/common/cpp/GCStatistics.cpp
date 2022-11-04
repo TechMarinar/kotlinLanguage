@@ -21,7 +21,7 @@ void Kotlin_Internal_GC_GCInfoBuilder_setStartTime(KRef thiz, KLong value);
 void Kotlin_Internal_GC_GCInfoBuilder_setEndTime(KRef thiz, KLong value);
 void Kotlin_Internal_GC_GCInfoBuilder_setPauseStartTime(KRef thiz, KLong value);
 void Kotlin_Internal_GC_GCInfoBuilder_setPauseEndTime(KRef thiz, KLong value);
-void Kotlin_Internal_GC_GCInfoBuilder_setFinalizersDoneTime(KRef thiz, KLong value);
+void Kotlin_Internal_GC_GCInfoBuilder_setPostGcCleanupTime(KRef thiz, KLong value);
 void Kotlin_Internal_GC_GCInfoBuilder_setRootSet(KRef thiz,
                                                  KLong threadLocalReferences, KLong stackReferences,
                                                  KLong globalReferences, KLong stableReferences);
@@ -76,7 +76,7 @@ struct GCInfo {
         if (endTime) Kotlin_Internal_GC_GCInfoBuilder_setEndTime(builder, *endTime);
         if (pauseStartTime) Kotlin_Internal_GC_GCInfoBuilder_setPauseStartTime(builder, *pauseStartTime);
         if (pauseEndTime) Kotlin_Internal_GC_GCInfoBuilder_setPauseEndTime(builder, *pauseEndTime);
-        if (finalizersDoneTime) Kotlin_Internal_GC_GCInfoBuilder_setFinalizersDoneTime(builder, *finalizersDoneTime);
+        if (finalizersDoneTime) Kotlin_Internal_GC_GCInfoBuilder_setPostGcCleanupTime(builder, *finalizersDoneTime);
         if (rootSet)
             Kotlin_Internal_GC_GCInfoBuilder_setRootSet(
                     builder, rootSet->threadLocalReferences, rootSet->stackReferences, rootSet->globalReferences,

@@ -59,8 +59,8 @@ public class RootSetStatistics(
  *                     After this point, most of the memory is reclaimed, and a new garbage collector run can start.
  * @property pauseStartTimeNs Time, when mutator threads are suspended, mesured by [kotlin.system.getTimeNanos].
  * @property pauseEndTimeNs Time, when mutator threads are unsuspended, mesured by [kotlin.system.getTimeNanos].
- * @property finilisersDoneTimeNs Time, when all memory is reclaimed, measured by [kotlin.system.getTimeNanos].
- *                                If null, memory reclaiming is still in progress.
+ * @property postGcCleanupTimeNs Time, when all memory is reclaimed, measured by [kotlin.system.getTimeNanos].
+ *                                If null, memory reclamation is still in progress.
  * @property rootSet The number of objects in each root set pool. Check [RootSetStatistics] doc for details.
  * @property memoryUsageAfter Memory usage at the start of garbage collector run, separated by memory pools.
  *                            The set of memory pools depends on the collector implementation.
@@ -76,7 +76,7 @@ public class GCInfo(
         val endTimeNs: Long,
         val pauseStartTimeNs: Long,
         val pauseEndTimeNs: Long,
-        val finilisersDoneTimeNs: Long?,
+        val postGcCleanupTimeNs: Long?,
         val rootSet: RootSetStatistics,
         val memoryUsageBefore: Map<String, MemoryUsage>,
         val memoryUsageAfter: Map<String, MemoryUsage>,
@@ -97,7 +97,7 @@ private class GCInfoBuilder() {
     var endTimeNs: Long? = null
     var pauseStartTimeNs: Long? = null
     var pauseEndTimeNs: Long? = null
-    var finalizersDoneTimeNs: Long? = null
+    var postGcCleanupTimeNs: Long? = null
     var rootSet: RootSetStatistics? = null
     var memoryUsageBefore = mutableMapOf<String, MemoryUsage>()
     var memoryUsageAfter = mutableMapOf<String, MemoryUsage>()
@@ -127,9 +127,9 @@ private class GCInfoBuilder() {
         pauseEndTimeNs = value
     }
 
-    @ExportForCppRuntime("Kotlin_Internal_GC_GCInfoBuilder_setFinalizersDoneTime")
+    @ExportForCppRuntime("Kotlin_Internal_GC_GCInfoBuilder_setPostGcCleanupTime")
     private fun setFinalizersDoneTime(value: Long) {
-        finalizersDoneTimeNs = value
+        postGcCleanupTimeNs = value
     }
 
     @ExportForCppRuntime("Kotlin_Internal_GC_GCInfoBuilder_setRootSet")
@@ -158,7 +158,7 @@ private class GCInfoBuilder() {
                 endTimeNs ?: return null,
                 pauseStartTimeNs ?: return null,
                 pauseEndTimeNs ?: return null,
-                finalizersDoneTimeNs,
+                postGcCleanupTimeNs,
                 rootSet ?: return null,
                 memoryUsageBefore.toMap(),
                 memoryUsageAfter.toMap()
