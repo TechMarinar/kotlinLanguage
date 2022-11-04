@@ -73,6 +73,24 @@ public class InteropIndexerNoFModulesTestGenerated extends AbstractNativeInterop
         public void testFull() throws Exception {
             runTest("native/native.tests/testData/Interop/Indexer/simple/simpleDefs/full/");
         }
+
+        @Test
+        @TestMetadata("modulesA")
+        public void testModulesA() throws Exception {
+            runTest("native/native.tests/testData/Interop/Indexer/simple/simpleDefs/modulesA/");
+        }
+
+        @Test
+        @TestMetadata("modulesAB")
+        public void testModulesAB() throws Exception {
+            runTest("native/native.tests/testData/Interop/Indexer/simple/simpleDefs/modulesAB/");
+        }
+
+        @Test
+        @TestMetadata("modulesB")
+        public void testModulesB() throws Exception {
+            runTest("native/native.tests/testData/Interop/Indexer/simple/simpleDefs/modulesB/");
+        }
     }
 
     @Nested
@@ -125,6 +143,12 @@ public class InteropIndexerNoFModulesTestGenerated extends AbstractNativeInterop
         public void testFull() throws Exception {
             runTest("native/native.tests/testData/Interop/Indexer/framework/frameworkDefs/full/");
         }
+
+        @Test
+        @TestMetadata("modulesPod1")
+        public void testModulesPod1() throws Exception {
+            runTest("native/native.tests/testData/Interop/Indexer/framework/frameworkDefs/modulesPod1/");
+        }
     }
 
     @Nested
@@ -134,6 +158,12 @@ public class InteropIndexerNoFModulesTestGenerated extends AbstractNativeInterop
         @Test
         public void testAllFilesPresentInMacrosDefs() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/Interop/Indexer/framework.macros/macrosDefs"), Pattern.compile("^([^_](.+))$"), null, false);
+        }
+
+        @Test
+        @TestMetadata("modulesPod1")
+        public void testModulesPod1() throws Exception {
+            runTest("native/native.tests/testData/Interop/Indexer/framework.macros/macrosDefs/modulesPod1/");
         }
 
         @Test
@@ -174,6 +204,12 @@ public class InteropIndexerNoFModulesTestGenerated extends AbstractNativeInterop
         @TestMetadata("fullStdargH")
         public void testFullStdargH() throws Exception {
             runTest("native/native.tests/testData/Interop/Indexer/builtins/builtinsDefs/fullStdargH/");
+        }
+
+        @Test
+        @TestMetadata("modulesA")
+        public void testModulesA() throws Exception {
+            runTest("native/native.tests/testData/Interop/Indexer/builtins/builtinsDefs/modulesA/");
         }
     }
 }
