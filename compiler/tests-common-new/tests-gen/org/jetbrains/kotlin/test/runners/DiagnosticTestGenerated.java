@@ -2749,6 +2749,12 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
             }
 
             @Test
+            @TestMetadata("deprecateTopLevelReferenceWithCompanionLHS.kt")
+            public void testDeprecateTopLevelReferenceWithCompanionLHS() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/callableReference/deprecateTopLevelReferenceWithCompanionLHS.kt");
+            }
+
+            @Test
             @TestMetadata("deprecatedCompanionReceiverInParentheses.kt")
             public void testDeprecatedCompanionReceiverInParentheses() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/callableReference/deprecatedCompanionReceiverInParentheses.kt");
