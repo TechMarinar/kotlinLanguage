@@ -740,10 +740,9 @@ private fun filterHeadersByName(
                     // If the header is included with `#include <$name>`, then `name` is probably
                     // the path relative to the include path element.
                     name
-                } else if (includeLocation.getContainingFile() == null) {
-                    name // containingFile is null when one module imports another via AST file
                 } else {
                     // If it is included with `#include "$name"`, then `name` can also be the path relative to the includer.
+                    // Warning: containingFile is null when one module imports another via AST file
                     val includerFile = includeLocation.getContainingFile()!!
                     val includerName = headerToName[includerFile.canonicalPath] ?: ""
                     val includerPath = includerFile.path
@@ -766,6 +765,8 @@ private fun filterHeadersByName(
                     // So include location makes sense only the first
                     headerToName[file.canonicalPath] = headerName
                 }
+                println("filterHeadersByPredefined ppIncludedFile name=$name headerName=$headerName")
+
                 if (!filter.policy.excludeUnused(headerName)) {
                     ownHeaders.add(file)
                     ownTranslationUnits += curUnit
@@ -824,6 +825,7 @@ private fun filterHeadersByPredefined(
             override fun ppIncludedFile(info: CXIdxIncludedFileInfo) {
                 val file = info.file
                 allHeaders += file
+                println("filterHeadersByPredefined ppIncludedFile ${file?.canonicalPath}")
                 if (file?.canonicalPath in filter.headers) {
                     ownHeaders += file
                 }

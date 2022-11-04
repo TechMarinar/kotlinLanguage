@@ -52,6 +52,9 @@ abstract class AbstractNativeInteropIndexerTest : AbstractNativeInteropIndexerBa
         val testDataDir = testPathFull.parentFile.parentFile
         val includeFolder = testDataDir.resolve("include")
         val defFile = testPathFull.resolve("pod1.def")
+        val defHasHeaders = defFile.readText().split("\n").any { it.startsWith("headers") }
+        Assumptions.assumeFalse(fmodules && defHasHeaders)
+
         val goldenFile = if (testDataDir.name == "builtins")
             getBuiltinsGoldenFile(testPathFull)
         else

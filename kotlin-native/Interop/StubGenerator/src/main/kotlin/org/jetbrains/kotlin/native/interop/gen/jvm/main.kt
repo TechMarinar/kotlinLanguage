@@ -518,6 +518,7 @@ internal fun buildNativeLibrary(
     val modules = def.config.modules
 
     if (modules.isEmpty()) {
+        require(headerFiles.isEmpty() || !compilation.compilerArgs.contains("-fmodules")) { "cinterop doesn't support having headers in -fmodules mode" }
         val excludeDependentModules = def.config.excludeDependentModules
 
         val headerFilterGlobs = def.config.headerFilter
