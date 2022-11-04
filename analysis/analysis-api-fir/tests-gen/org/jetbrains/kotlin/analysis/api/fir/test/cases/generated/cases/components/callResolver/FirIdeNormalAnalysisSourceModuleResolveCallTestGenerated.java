@@ -479,6 +479,18 @@ public class FirIdeNormalAnalysisSourceModuleResolveCallTestGenerated extends Ab
     }
 
     @Test
+    @TestMetadata("incompleteCodeNewKeyword.kt")
+    public void testIncompleteCodeNewKeyword() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/incompleteCodeNewKeyword.kt");
+    }
+
+    @Test
+    @TestMetadata("incompleteCodeNoParenthesis.kt")
+    public void testIncompleteCodeNoParenthesis() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/incompleteCodeNoParenthesis.kt");
+    }
+
+    @Test
     @TestMetadata("indexedGet.kt")
     public void testIndexedGet() throws Exception {
         runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/indexedGet.kt");

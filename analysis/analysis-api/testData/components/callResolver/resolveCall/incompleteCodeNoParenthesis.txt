@@ -1,0 +1,16 @@
+KtSuccessCallInfo:
+  call = KtSimpleFunctionCall:
+    isImplicitInvoke = false
+    partiallyAppliedSymbol = KtPartiallyAppliedSymbol:
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KtFunctionLikeSignature:
+        receiverType = null
+        returnType = ALE<kotlin.String>
+        symbol = <constructor>(): ALE<T>
+        valueParameters = []
+        callableIdIfNonLocal = null
+    typeArgumentsMapping = {
+      T -> (kotlin.String)
+    }
+    argumentMapping = {}

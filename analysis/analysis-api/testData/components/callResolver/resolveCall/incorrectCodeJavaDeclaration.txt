@@ -1,0 +1,3 @@
+KtErrorCallInfo:
+  candidateCalls = []
+  diagnostic = ERROR<RESOLUTION_TO_CLASSIFIER: Constructor of inner class interface List<out E> : Collection<E> can be called only with receiver of containing class>

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.builder
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.IElementType
+import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.builtins.StandardNames.BACKING_FIELD
 import org.jetbrains.kotlin.config.LanguageFeature
@@ -2388,20 +2389,25 @@ open class RawFirBuilder(
             val source = expression.toFirSourceElement()
             val (calleeReference, explicitReceiver, isImplicitInvoke) = splitToCalleeAndReceiver(expression.calleeExpression, source)
 
-            val result: FirQualifiedAccessBuilder = if (expression.valueArgumentList == null && expression.lambdaArguments.isEmpty()) {
-                FirPropertyAccessExpressionBuilder().apply {
-                    this.source = source
-                    this.calleeReference = calleeReference
-                }
-            } else {
-                val builder = if (isImplicitInvoke) FirImplicitInvokeCallBuilder() else FirFunctionCallBuilder()
-                builder.apply {
-                    this.source = source
-                    this.calleeReference = calleeReference
-                    context.calleeNamesForLambda += calleeReference.name
-                    expression.extractArgumentsTo(this)
-                    context.calleeNamesForLambda.removeLast()
-                }
+            val incompleteCode = PsiTreeUtil.skipParentsOfType(
+                expression,
+                KtDotQualifiedExpression::class.java
+            ) !is KtCallableReferenceExpression && expression.typeArgumentList != null
+            val result: FirQualifiedAccessBuilder =
+                if (expression.valueArgumentList == null && expression.lambdaArguments.isEmpty() && !incompleteCode) {
+                    FirPropertyAccessExpressionBuilder().apply {
+                        this.source = source
+                        this.calleeReference = calleeReference
+                    }
+                } else {
+                    val builder = if (isImplicitInvoke) FirImplicitInvokeCallBuilder() else FirFunctionCallBuilder()
+                    builder.apply {
+                        this.source = source
+                        this.calleeReference = calleeReference
+                        context.calleeNamesForLambda += calleeReference.name
+                        expression.extractArgumentsTo(this)
+                        context.calleeNamesForLambda.removeLast()
+                    }
             }
 
             return result.apply {
