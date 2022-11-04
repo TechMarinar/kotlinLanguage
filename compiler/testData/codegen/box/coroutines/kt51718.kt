@@ -21,18 +21,6 @@ class Service {
         call(start!!)
     }
 
-    val canalConfig = suspend {
-        var start: Start? = null
-        var configuration: String? = null
-        val starts: Array<Start>? = null
-        if (starts != null && starts.isNotEmpty()) {
-            start = starts[0]
-            configuration = call2()
-        }
-        //start = start as Start // kotlin 1.5.0 need for produce correct bytecode
-        call(start!!)
-    }
-
     fun call(start: Start) {
 
     }
@@ -50,10 +38,6 @@ fun box(): String {
         try {
             Service().getCanalConfig()
             error("FAIL 1")
-        } catch (ignored: NullPointerException) {}
-        try {
-            Service().canalConfig()
-            error("FAIL 2")
         } catch (ignored: NullPointerException) {}
     }
     return "OK"
