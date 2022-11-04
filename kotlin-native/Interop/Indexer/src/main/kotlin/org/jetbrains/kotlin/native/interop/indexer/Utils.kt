@@ -674,7 +674,7 @@ internal fun getHeadersAndUnits(
             filterHeadersByName(library, filter, index, translationUnit, ownTranslationUnits, ownHeaders, allHeaders, unitsHolder)
 
         is NativeLibraryHeaderFilter.Predefined ->
-            filterHeadersByPredefined(filter, index, translationUnit, ownHeaders, allHeaders, unitsHolder)
+            filterHeadersByPredefined(filter, index, translationUnit, ownTranslationUnits, ownHeaders, allHeaders, unitsHolder)
     }
 
     ownHeaders.removeAll { library.headerExclusionPolicy.excludeAll(getHeaderId(library, it)) }
@@ -765,7 +765,6 @@ private fun filterHeadersByName(
                     // So include location makes sense only the first
                     headerToName[file.canonicalPath] = headerName
                 }
-                println("filterHeadersByPredefined ppIncludedFile name=$name headerName=$headerName")
 
                 if (!filter.policy.excludeUnused(headerName)) {
                     ownHeaders.add(file)
@@ -808,6 +807,7 @@ private fun filterHeadersByPredefined(
         filter: NativeLibraryHeaderFilter.Predefined,
         index: CXIndex,
         translationUnit: CXTranslationUnit,
+        ownTranslationUnits: MutableSet<CXTranslationUnit>,
         ownHeaders: MutableSet<CXFile?>,
         allHeaders: MutableSet<CXFile?>,
         unitsHolder: UnitsHolder
@@ -825,7 +825,6 @@ private fun filterHeadersByPredefined(
             override fun ppIncludedFile(info: CXIdxIncludedFileInfo) {
                 val file = info.file
                 allHeaders += file
-                println("filterHeadersByPredefined ppIncludedFile ${file?.canonicalPath}")
                 if (file?.canonicalPath in filter.headers) {
                     ownHeaders += file
                 }
@@ -835,10 +834,11 @@ private fun filterHeadersByPredefined(
                 unitsHolder.load(info).also { unit ->
                     if (!translationUnits.contains(unit)) {
                         translationUnits.add(unit)
+                        // TODO maybe an optimization can be done here: add only modules specified in deffile
+                        ownTranslationUnits += unit
                     }
                 }
             }
-
         })
     }
 }
