@@ -479,15 +479,15 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveCallTestGenerated ext
     }
 
     @Test
-    @TestMetadata("incompleteCodeNewKeyword.kt")
-    public void testIncompleteCodeNewKeyword() throws Exception {
-        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/incompleteCodeNewKeyword.kt");
-    }
-
-    @Test
     @TestMetadata("incompleteCodeNoParenthesis.kt")
     public void testIncompleteCodeNoParenthesis() throws Exception {
         runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/incompleteCodeNoParenthesis.kt");
+    }
+
+    @Test
+    @TestMetadata("incorrectCodeJavaDeclaration.kt")
+    public void testIncorrectCodeJavaDeclaration() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/incorrectCodeJavaDeclaration.kt");
     }
 
     @Test
