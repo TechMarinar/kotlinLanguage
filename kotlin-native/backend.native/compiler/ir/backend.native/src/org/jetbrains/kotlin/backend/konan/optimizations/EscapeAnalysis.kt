@@ -549,7 +549,8 @@ internal object EscapeAnalysis {
 
         private enum class ComputationState {
             NEW,
-            PENDING
+            PENDING,
+            DONE
         }
 
         private class Stats {
@@ -659,33 +660,31 @@ internal object EscapeAnalysis {
                 multiNode: DirectedGraphMultiNode<DataFlowIR.FunctionSymbol.Declared>
         ): MutableMap<DataFlowIR.FunctionSymbol.Declared, PointsToGraph> {
             val nodes = multiNode.nodes.filter { intraproceduralAnalysisResults.containsKey(it) }
-            val nodesCallSites = nodes.associateWith { callGraph.directEdges[it]!!.callSites }
             val pointsToGraphs = mutableMapOf<DataFlowIR.FunctionSymbol.Declared, PointsToGraph>()
             val computationStates = mutableMapOf<DataFlowIR.FunctionSymbol.Declared, ComputationState>()
-            nodes.forEach { node ->
-                escapeAnalysisResults[node] = FunctionEscapeAnalysisResult.optimistic()
-                computationStates[node] = ComputationState.NEW
-            }
+            nodes.forEach { computationStates[it] = ComputationState.NEW }
             val toAnalyze = nodes.toMutableList()
             while (toAnalyze.isNotEmpty()) {
                 val function = toAnalyze.peek()!!
                 val state = computationStates[function]!!
-                val callSites = nodesCallSites[function]!!
+                val callSites = callGraph.directEdges[function]!!.callSites
                 when (state) {
                     ComputationState.NEW -> {
                         computationStates[function] = ComputationState.PENDING
                         for (callSite in callSites) {
                             val callee = callSite.actualCallee
+                            val calleeComputationState = computationStates[callee]
                             if (callSite.isVirtual
                                     || callee !is DataFlowIR.FunctionSymbol.Declared // An external call.
-                                    || !nodesCallSites.containsKey(callee) // A call to a function from other component.
-                                    || pointsToGraphs.containsKey(callee) // Already analyzed.
+                                    || calleeComputationState == null // A call to a function from other component.
+                                    || calleeComputationState == ComputationState.DONE // Already analyzed.
                             ) {
                                 continue
                             }
 
-                            if (computationStates[callee] == ComputationState.PENDING) {
+                            if (calleeComputationState == ComputationState.PENDING) {
                                 // A cycle - break it by assuming nothing about the callee.
+                                // This is not the callee's final result - it will be recomputed later in the loop.
                                 escapeAnalysisResults[callee] = FunctionEscapeAnalysisResult.pessimistic(callee.parameters.size)
                             } else {
                                 computationStates[callee] = ComputationState.NEW
@@ -696,7 +695,7 @@ internal object EscapeAnalysis {
 
                     ComputationState.PENDING -> {
                         toAnalyze.pop()
-                        if (pointsToGraphs[function] != null) continue
+                        computationStates[function] = ComputationState.DONE
                         val pointsToGraph = PointsToGraph(function)
                         if (analyze(callSites, pointsToGraph, function, maxPointsToGraphSizeOf(function)))
                             pointsToGraphs[function] = pointsToGraph
@@ -707,11 +706,15 @@ internal object EscapeAnalysis {
                                         " Assuming conservative results."
                             }
                             escapeAnalysisResults[function] = FunctionEscapeAnalysisResult.pessimistic(function.parameters.size)
-                            // Invalidate points-to graph.
-                            pointsToGraphs[function] = PointsToGraph(function).also {
-                                it.allNodes.forEach { it.depth = Depths.GLOBAL }
+                            // Invalidate the points-to graph.
+                            pointsToGraphs[function] = PointsToGraph(function).apply {
+                                allNodes.forEach { it.depth = Depths.GLOBAL }
                             }
                         }
+                    }
+
+                    ComputationState.DONE -> {
+                        toAnalyze.pop()
                     }
                 }
             }
