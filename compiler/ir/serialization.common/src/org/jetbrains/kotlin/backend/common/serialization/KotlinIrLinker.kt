@@ -77,6 +77,17 @@ abstract class KotlinIrLinker(
         // might return null (like KonanInteropModuleDeserializer does) or non-null unbound symbol (like JsModuleDeserializer does).
         val symbol: IrSymbol? = actualModuleDeserializer?.tryDeserializeIrSymbol(idSignature, symbolKind)
 
+        // TODO: debug JS vs Native!
+        run {
+            if (idSignature.render().startsWith("/Foo.<init>|")) {
+                print("")
+            }
+
+            if (actualModuleDeserializer != null && symbol == null) {
+                print("")
+            }
+        }
+
         return symbol ?: run {
             if (partialLinkageSupport.partialLinkageEnabled)
                 referenceDeserializedSymbol(symbolTable, null, symbolKind, idSignature)
