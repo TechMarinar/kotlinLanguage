@@ -1,0 +1,9 @@
+expression: 0
+
+CONSTANT_EXPRESSION_EVALUATION
+constant: 0
+constantValueKind: Int
+
+CONSTANT_LIKE_EXPRESSION_EVALUATION
+constantLike: 0
+constantLikeValueKind: Int

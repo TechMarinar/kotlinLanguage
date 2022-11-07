@@ -47,6 +47,12 @@ public class FirIdeDependentAnalysisSourceModuleCompileTimeConstantEvaluatorTest
     }
 
     @Test
+    @TestMetadata("arrayAccessWithInc.kt")
+    public void testArrayAccessWithInc() throws Exception {
+        runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/arrayAccessWithInc.kt");
+    }
+
+    @Test
     @TestMetadata("binaryExpressionWithString.kt")
     public void testBinaryExpressionWithString() throws Exception {
         runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/binaryExpressionWithString.kt");
