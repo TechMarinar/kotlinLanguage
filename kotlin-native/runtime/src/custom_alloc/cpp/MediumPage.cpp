@@ -23,7 +23,7 @@ bool MediumPage::Sweep() noexcept {
     CustomDebug("MediumPage@%p::Sweep()", this);
     Cell* end = cells_ + MEDIUM_PAGE_CELL_COUNT;
     bool alive = false;
-    for (Cell block : *this) {
+    for (Cell& block : *this) {
         if (block.isAllocated_) {
             if (TryResetMark(block.Data())) {
                 alive = true;
@@ -33,7 +33,7 @@ bool MediumPage::Sweep() noexcept {
         }
     }
     Cell* maxBlock = &kZeroBlock_;
-    for (Cell block : *this) {
+    for (Cell& block : *this) {
         if (block.isAllocated_) continue;
         while (block.Next() != end && !block.Next()->isAllocated_) {
             block.size_ += block.Next()->size_;
@@ -48,7 +48,7 @@ void MediumPage::UpdateCurBlock(uint32_t cellsNeeded) noexcept {
     CustomDebug("MediumPage@%p::UpdateCurBlock(%u)", this, cellsNeeded);
     if (curBlock_ == &kZeroBlock_) curBlock_ = cells_;
     Cell* maxBlock = &kZeroBlock_;
-    for (Cell block : *this) {
+    for (Cell& block : *this) {
         if (!block.isAllocated_ && block.size_ > maxBlock->size_) {
             maxBlock = &block;
             if (block.size_ >= cellsNeeded) {
@@ -58,7 +58,7 @@ void MediumPage::UpdateCurBlock(uint32_t cellsNeeded) noexcept {
         }
     }
     CustomDebug("MediumPage@%p::UpdateCurBlock: starting from beginning", this);
-    for (Cell block : *this) {
+    for (Cell& block : *this) {
         if (!block.isAllocated_ && block.size_ > maxBlock->size_) {
             maxBlock = &block;
             if (block.size_ >= cellsNeeded) {

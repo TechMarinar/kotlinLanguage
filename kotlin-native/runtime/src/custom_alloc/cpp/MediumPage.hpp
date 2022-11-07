@@ -42,10 +42,10 @@ public:
     };
 
     Iterator begin() noexcept { return Iterator(cells_); }
-    Iterator end() noexcept { return Iterator(nullptr); }
+    Iterator end() noexcept { return Iterator(cells_ + MEDIUM_PAGE_CELL_COUNT); }
 
     MediumPage(uint32_t cellCount) noexcept : curBlock_(cells_), kZeroBlock_(0) {
-        cells_[0] = Cell(cellCount);
+        cells_[0] = Cell(MEDIUM_PAGE_CELL_COUNT);
     }
 
     static MediumPage* Create(uint32_t cellCount) noexcept {
