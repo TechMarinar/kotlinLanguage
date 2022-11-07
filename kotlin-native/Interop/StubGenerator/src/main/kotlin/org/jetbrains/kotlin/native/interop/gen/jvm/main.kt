@@ -69,9 +69,11 @@ fun main(args: Array<String>) {
 }
 
 class Interop {
-    // TODO get rid of `interopReflected()`.
-    //  Current problem to invoke `interop()` directly is: NoSuchMethodError, caused by InternalInteropOptions argtype:
-    //  java.lang.IllegalArgumentException: argument type mismatch
+    /**
+     * invoked via reflection from new test system: CompilationToolCallKt.invokeCInterop(),
+     * `interop()` has issues to be invoked directly due to NoSuchMethodError, caused by presence of InternalInteropOptions argtype:
+     * java.lang.IllegalArgumentException: argument type mismatch
+     */
     fun interopViaReflection(
             flavor: String, args: Array<String>,
             runFromDaemon: Boolean,

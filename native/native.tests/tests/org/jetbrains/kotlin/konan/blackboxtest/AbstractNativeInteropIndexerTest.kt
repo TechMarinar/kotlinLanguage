@@ -67,7 +67,7 @@ abstract class AbstractNativeInteropIndexerTest : AbstractNativeInteropIndexerBa
 
         val testCase: TestCase = generateCInteropTestCaseWithSingleDef(defFile, includeArgs + fmodulesArgs)
         val testCompilationResult = testCase.cinteropToLibrary()
-        val klibContents = testCompilationResult.resultingArtifact.getContents()
+        val klibContents = testCompilationResult.resultingArtifact.getContents(kotlinNativeClassLoader.classLoader)
 
         val expectedContents = goldenFile.readText()
         assertEquals(StringUtilRt.convertLineSeparators(expectedContents), StringUtilRt.convertLineSeparators(klibContents)) {

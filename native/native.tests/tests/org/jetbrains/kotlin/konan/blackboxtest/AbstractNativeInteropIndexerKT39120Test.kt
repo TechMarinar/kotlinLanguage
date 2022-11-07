@@ -36,7 +36,7 @@ abstract class AbstractNativeInteropIndexerKT39120Test : AbstractNativeInteropIn
 
         val test1Case: TestCase = generateCInteropTestCaseWithSingleDef(def1File, includeFrameworkArgs)
         val klib1: KLIB = test1Case.cinteropToLibrary().resultingArtifact
-        val contents1 = klib1.getContents()
+        val contents1 = klib1.getContents(kotlinNativeClassLoader.classLoader)
 
         val expectedFiltered1Output = golden1File.readText()
         val actualFiltered1Output = filterContentsOutput(contents1, " pod.Version|POD1")
@@ -45,7 +45,7 @@ abstract class AbstractNativeInteropIndexerKT39120Test : AbstractNativeInteropIn
         val cinterop2ExtraArgs = listOf("-l", klib1.klibFile.canonicalPath, "-compiler-option", "-fmodules")
         val test2Case: TestCase = generateCInteropTestCaseWithSingleDef(def2File, includeFrameworkArgs + cinterop2ExtraArgs)
         val klib2: KLIB = test2Case.cinteropToLibrary().resultingArtifact
-        val contents2 = klib2.getContents()
+        val contents2 = klib2.getContents(kotlinNativeClassLoader.classLoader)
 
         val expectedFiltered2Output = golden2File.readText()
         val actualFiltered2Output = filterContentsOutput(contents2, " pod.Version|POD1")
