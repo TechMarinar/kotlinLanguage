@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure
 
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveComponents
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LowLevelFirApiFacadeForResolveOnAir
@@ -17,6 +18,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.RawFirNonLoc
 import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.declarationCanBeLazilyResolved
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
 import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.scopes.kotlinScopeProvider
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
@@ -62,6 +64,11 @@ internal class KtToFirMapping(firElement: FirElement, recorder: FirElementsRecor
                         it.name.asStringStripSpecialMarkers().substringAfter("index_", "").toIntOrNull() != null
                     ) {
                         return it.initializer
+                    }
+                    if (it is FirVariableAssignment &&
+                        it.rValue.source?.kind == KtFakeSourceElementKind.DesugaredIncrementOrDecrement
+                    ) {
+                        return it.rValue
                     }
                     return it
                 }

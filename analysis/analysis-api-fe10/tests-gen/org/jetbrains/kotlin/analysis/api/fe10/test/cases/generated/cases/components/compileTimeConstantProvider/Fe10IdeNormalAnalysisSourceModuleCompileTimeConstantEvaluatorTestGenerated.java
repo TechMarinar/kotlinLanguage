@@ -53,6 +53,12 @@ public class Fe10IdeNormalAnalysisSourceModuleCompileTimeConstantEvaluatorTestGe
     }
 
     @Test
+    @TestMetadata("arrayWithInc.kt")
+    public void testArrayWithInc() throws Exception {
+        runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/arrayWithInc.kt");
+    }
+
+    @Test
     @TestMetadata("binaryExpressionWithString.kt")
     public void testBinaryExpressionWithString() throws Exception {
         runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/binaryExpressionWithString.kt");
@@ -80,6 +86,12 @@ public class Fe10IdeNormalAnalysisSourceModuleCompileTimeConstantEvaluatorTestGe
     @TestMetadata("integerLiteral_plusOne_justOne.kt")
     public void testIntegerLiteral_plusOne_justOne() throws Exception {
         runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/integerLiteral_plusOne_justOne.kt");
+    }
+
+    @Test
+    @TestMetadata("interpolationWithInc.kt")
+    public void testInterpolationWithInc() throws Exception {
+        runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/interpolationWithInc.kt");
     }
 
     @Test
@@ -188,6 +200,12 @@ public class Fe10IdeNormalAnalysisSourceModuleCompileTimeConstantEvaluatorTestGe
     @TestMetadata("propertyInit_UInt.kt")
     public void testPropertyInit_UInt() throws Exception {
         runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/propertyInit_UInt.kt");
+    }
+
+    @Test
+    @TestMetadata("qualifiedInc.kt")
+    public void testQualifiedInc() throws Exception {
+        runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/qualifiedInc.kt");
     }
 
     @Test
