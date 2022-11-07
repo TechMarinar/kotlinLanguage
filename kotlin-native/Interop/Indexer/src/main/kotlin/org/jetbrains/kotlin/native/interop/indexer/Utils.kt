@@ -757,14 +757,7 @@ private fun filterHeadersByName(
                     }
                 }
 
-                if (includeLocation.getContainingFile() != null) {
-                    // headerToName is stored only for known containing file of include location, which does not happen inside imported AST file.
-                    // Right before AST import, `ppIncludedFile` receives included source file in `info.file`, and another source as include location in `info.hashLoc`
-                    // Inside AST import, `ppIncludedFile` is called again for the same included source file,
-                    //   though include location is not a source, but `.m` file, and its `getContainingFile()` is null
-                    // So include location makes sense only the first
-                    headerToName[file.canonicalPath] = headerName
-                }
+                headerToName[file.canonicalPath] = headerName
 
                 if (!filter.policy.excludeUnused(headerName)) {
                     ownHeaders.add(file)
