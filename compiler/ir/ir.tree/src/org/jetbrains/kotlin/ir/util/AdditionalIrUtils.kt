@@ -21,7 +21,11 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import java.io.File
 
-val IrConstructor.constructedClass get() = this.parent as IrClass
+val IrConstructor.constructedClass get() = try {
+    this.parent as IrClass
+} catch (t: Throwable) {
+    throw t
+}
 
 val IrDeclarationParent.fqNameForIrSerialization: FqName
     get() = when (this) {

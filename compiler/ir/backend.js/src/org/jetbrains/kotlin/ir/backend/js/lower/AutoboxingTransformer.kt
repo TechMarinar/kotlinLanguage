@@ -91,8 +91,11 @@ abstract class AbstractValueUsageLowering(val context: JsCommonBackendContext) :
     override fun IrExpression.useAsDispatchReceiver(expression: IrFunctionAccessExpression): IrExpression {
         return if (expression.symbol.owner.dispatchReceiverParameter?.let { icUtils.shouldValueParameterBeBoxed(it) } == true)
             this.useAs(irBuiltIns.anyType)
-        else
+        else try {
             this.useAsArgument(expression.target.dispatchReceiverParameter!!)
+        } catch (t: Throwable) {
+            throw t
+        }
     }
 
     override fun IrExpression.useAsExtensionReceiver(expression: IrFunctionAccessExpression): IrExpression {
