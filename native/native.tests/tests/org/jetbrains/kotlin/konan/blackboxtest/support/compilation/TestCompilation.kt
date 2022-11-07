@@ -191,6 +191,7 @@ internal class GivenLibraryCompilation(givenArtifact: KLIB) : TestCompilation<KL
 
 internal class CInteropCompilation(
     targets: KotlinNativeTargets,
+    classLoader: KotlinNativeClassLoader,
     freeCompilerArgs: TestCompilerArgs,
     defFile: File,
     expectedArtifact: KLIB
@@ -201,6 +202,7 @@ internal class CInteropCompilation(
         val loggedCInteropParameters = LoggedData.CInteropParameters(extraArgs = extraArgsArray, defFile = defFile)
         val (loggedCall: LoggedData, immediateResult: TestCompilationResult.ImmediateResult<out KLIB>) = try {
             val (exitCode, cinteropOutput, cinteropOutputHasErrors, duration) = invokeCInterop(
+                classLoader.classLoader,
                 targets,
                 defFile,
                 expectedArtifact.klibFile,

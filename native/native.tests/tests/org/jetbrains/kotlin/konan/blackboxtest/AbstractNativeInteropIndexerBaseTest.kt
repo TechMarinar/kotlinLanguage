@@ -20,6 +20,7 @@ abstract class AbstractNativeInteropIndexerBaseTest : AbstractNativeSimpleTest()
     internal fun TestCase.cinteropToLibrary(): TestCompilationResult.Success<out KLIB> {
         modules.singleOrNull()
         val compilation = CInteropCompilation(
+            classLoader = testRunSettings.get(),
             targets = targets,
             freeCompilerArgs = freeCompilerArgs,
             defFile = modules.singleOrNull()!!.files.singleOrNull()!!.location,

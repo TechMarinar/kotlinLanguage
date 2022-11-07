@@ -68,21 +68,34 @@ fun main(args: Array<String>) {
     processCLibSafe(flavorName, arguments, InternalInteropOptions(arguments.generated, arguments.natives), runFromDaemon = false)
 }
 
-fun interop(
-        flavor: String, args: Array<String>,
-        additionalArgs: InternalInteropOptions,
-        runFromDaemon: Boolean
-): Array<String>? = when (flavor) {
-    "jvm", "native" -> {
-        val cinteropArguments = CInteropArguments()
-        cinteropArguments.argParser.parse(args)
-        val platform = KotlinPlatform.values().single { it.name.equals(flavor, ignoreCase = true) }
-        processCLibSafe(platform, cinteropArguments, additionalArgs, runFromDaemon)
+class Interop {
+    // TODO get rid of `interopReflected()`.
+    //  Current problem to invoke `interop()` directly is: NoSuchMethodError, caused by InternalInteropOptions argtype:
+    //  java.lang.IllegalArgumentException: argument type mismatch
+    fun interopViaReflection(
+            flavor: String, args: Array<String>,
+            runFromDaemon: Boolean,
+            generated: String, natives: String, manifest: String? = null, cstubsName: String? = null
+    ): Array<String>? {
+        val internalInteropOptions = InternalInteropOptions(generated, natives, manifest, cstubsName)
+        return interop(flavor, args, internalInteropOptions, runFromDaemon)
     }
-    "wasm" -> processIdlLib(args, additionalArgs)
-    else -> error("Unexpected flavor")
-}
 
+    fun interop(
+            flavor: String, args: Array<String>,
+            additionalArgs: InternalInteropOptions,
+            runFromDaemon: Boolean
+    ): Array<String>? = when (flavor) {
+        "jvm", "native" -> {
+            val cinteropArguments = CInteropArguments()
+            cinteropArguments.argParser.parse(args)
+            val platform = KotlinPlatform.values().single { it.name.equals(flavor, ignoreCase = true) }
+            processCLibSafe(platform, cinteropArguments, additionalArgs, runFromDaemon)
+        }
+        "wasm" -> processIdlLib(args, additionalArgs)
+        else -> error("Unexpected flavor")
+    }
+}
 // Options, whose values are space-separated and can be escaped.
 val escapedOptions = setOf("-compilerOpts", "-linkerOpts", "-compiler-options", "-linker-options")
 

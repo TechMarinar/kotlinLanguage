@@ -11,8 +11,6 @@ import org.jetbrains.kotlin.compilerRunner.OutputItemsCollectorImpl
 import org.jetbrains.kotlin.compilerRunner.processCompilerOutput
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.konan.blackboxtest.support.settings.KotlinNativeTargets
-import org.jetbrains.kotlin.native.interop.gen.jvm.InternalInteropOptions
-import org.jetbrains.kotlin.native.interop.gen.jvm.interop
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
@@ -76,6 +74,7 @@ internal fun callCompiler(compilerArgs: Array<String>, kotlinNativeClassLoader: 
 }
 
 internal fun invokeCInterop(
+    kotlinNativeClassLoader: ClassLoader,
     targets: KotlinNativeTargets,
     inputDef: File,
     outputLib: File,
@@ -87,16 +86,22 @@ internal fun invokeCInterop(
     val nativesDir = KonanFile(buildDir, "natives")
     val manifest = KonanFile(buildDir, "manifest.properties")
     val cstubsName = "cstubs"
+
+    val interopClass = Class.forName("org.jetbrains.kotlin.native.interop.gen.jvm.Interop", true, kotlinNativeClassLoader)
+    val entryPoint = interopClass.declaredMethods.single { it.name == "interopViaReflection" }
+
     val possibleSubsequentCompilerInvocationArgs: Array<String>?
 
     @OptIn(ExperimentalTime::class)
     val duration = measureTime {
-        possibleSubsequentCompilerInvocationArgs = interop(
+        @Suppress("UNCHECKED_CAST")
+        possibleSubsequentCompilerInvocationArgs = entryPoint.invoke(
+            interopClass.getDeclaredConstructor().newInstance(),
             "native",
             args + extraArgs,
-            InternalInteropOptions(generatedDir.absolutePath, nativesDir.absolutePath, manifest.path, cstubsName),
-            false
-        )
+            false,
+            generatedDir.absolutePath, nativesDir.absolutePath, manifest.path, cstubsName // args for InternalInteropOptions()
+        ) as? Array<String>?
     }
     // In currently tested usecases, cinterop must return no args for the subsequent compiler call
     return if (possibleSubsequentCompilerInvocationArgs == null) {
