@@ -165,14 +165,14 @@ private fun CallableMemberDescriptor.hasInlineClassReceiver() =
 
 internal fun Class<*>.getUnboxMethod(descriptor: CallableMemberDescriptor): Method =
     try {
-        getDeclaredMethod("unbox" + JvmAbi.IMPL_SUFFIX_FOR_INLINE_CLASS_MEMBERS)
+        getDeclaredMethod("unbox" + JvmAbi.IMPL_SUFFIX_FOR_MANGLED_MEMBERS)
     } catch (e: NoSuchMethodException) {
         throw KotlinReflectionInternalError("No unbox method found in inline class: $this (calling $descriptor)")
     }
 
 internal fun Class<*>.getBoxMethod(descriptor: CallableMemberDescriptor): Method =
     try {
-        getDeclaredMethod("box" + JvmAbi.IMPL_SUFFIX_FOR_INLINE_CLASS_MEMBERS, getUnboxMethod(descriptor).returnType)
+        getDeclaredMethod("box" + JvmAbi.IMPL_SUFFIX_FOR_MANGLED_MEMBERS, getUnboxMethod(descriptor).returnType)
     } catch (e: NoSuchMethodException) {
         throw KotlinReflectionInternalError("No box method found in inline class: $this (calling $descriptor)")
     }

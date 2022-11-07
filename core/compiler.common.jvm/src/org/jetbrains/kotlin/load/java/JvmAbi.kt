@@ -46,7 +46,7 @@ object JvmAbi {
     const val LOCAL_VARIABLE_NAME_PREFIX_INLINE_ARGUMENT = "\$i\$a$"
     const val LOCAL_VARIABLE_NAME_PREFIX_INLINE_FUNCTION = "\$i\$f$"
 
-    const val IMPL_SUFFIX_FOR_INLINE_CLASS_MEMBERS = "-impl"
+    const val IMPL_SUFFIX_FOR_MANGLED_MEMBERS = "-impl"
 
     const val REPEATABLE_ANNOTATION_CONTAINER_NAME = "Container"
     val REPEATABLE_ANNOTATION_CONTAINER_META_ANNOTATION = ClassId.fromString("kotlin/jvm/internal/RepeatableContainer")

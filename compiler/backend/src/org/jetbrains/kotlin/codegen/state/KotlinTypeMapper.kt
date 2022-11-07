@@ -59,7 +59,6 @@ import org.jetbrains.kotlin.resolve.calls.model.VarargValueArgument
 import org.jetbrains.kotlin.resolve.descriptorUtil.builtIns
 import org.jetbrains.kotlin.resolve.descriptorUtil.classId
 import org.jetbrains.kotlin.resolve.descriptorUtil.isPublishedApi
-import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.DEFAULT_CONSTRUCTOR_MARKER
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
 import org.jetbrains.kotlin.resolve.jvm.JAVA_LANG_RECORD_FQ_NAME
@@ -695,7 +694,7 @@ class KotlinTypeMapper @JvmOverloads constructor(
             if (suffix != null) {
                 newName += suffix
             } else if (kind === OwnerKind.ERASED_INLINE_CLASS) {
-                newName += JvmAbi.IMPL_SUFFIX_FOR_INLINE_CLASS_MEMBERS
+                newName += JvmAbi.IMPL_SUFFIX_FOR_MANGLED_MEMBERS
             }
         }
 
@@ -1576,10 +1575,10 @@ class KotlinTypeMapper @JvmOverloads constructor(
         }
 
         @JvmField
-        val BOX_JVM_METHOD_NAME = InlineClassDescriptorResolver.BOX_METHOD_NAME.toString() + JvmAbi.IMPL_SUFFIX_FOR_INLINE_CLASS_MEMBERS
+        val BOX_JVM_METHOD_NAME = InlineClassDescriptorResolver.BOX_METHOD_NAME.toString() + JvmAbi.IMPL_SUFFIX_FOR_MANGLED_MEMBERS
 
         @JvmField
-        val UNBOX_JVM_METHOD_NAME = InlineClassDescriptorResolver.UNBOX_METHOD_NAME.toString() + JvmAbi.IMPL_SUFFIX_FOR_INLINE_CLASS_MEMBERS
+        val UNBOX_JVM_METHOD_NAME = InlineClassDescriptorResolver.UNBOX_METHOD_NAME.toString() + JvmAbi.IMPL_SUFFIX_FOR_MANGLED_MEMBERS
 
         private fun getPartSimpleNameForMangling(callableDescriptor: CallableMemberDescriptor): String? {
             var descriptor = callableDescriptor

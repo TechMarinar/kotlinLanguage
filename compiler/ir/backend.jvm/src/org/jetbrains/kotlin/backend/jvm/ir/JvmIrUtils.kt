@@ -69,9 +69,12 @@ import org.jetbrains.org.objectweb.asm.commons.Method
 import java.io.File
 
 fun IrDeclaration.getJvmNameFromAnnotation(): String? {
-    // TODO lower @JvmName?
-    val const = getAnnotation(DescriptorUtils.JVM_NAME)?.getValueArgument(0) as? IrConst<*> ?: return null
+    val jvmName = getAnnotation(DescriptorUtils.JVM_NAME)
+    val jvmExpose = getAnnotation(DescriptorUtils.JVM_EXPOSE)
+    check(jvmName == null || jvmExpose == null) { "Declaration annotated both with JvmName and JvmExpose ${ir2string(this)}" }
+    var const = jvmName?.getValueArgument(0) as? IrConst<*> ?: jvmExpose?.getValueArgument(0) as? IrConst<*> ?: return null
     val value = const.value as? String ?: return null
+
     return when (origin) {
         IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER -> "$value\$default"
         JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE,
