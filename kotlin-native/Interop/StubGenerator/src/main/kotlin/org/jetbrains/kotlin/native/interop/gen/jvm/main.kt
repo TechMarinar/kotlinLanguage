@@ -549,7 +549,7 @@ internal fun buildNativeLibrary(
 
         val modulesInfo = getModulesInfo(compilation, modules)
 
-        headerFilter = NativeLibraryHeaderFilter.Predefined(modulesInfo.ownHeaders)
+        headerFilter = NativeLibraryHeaderFilter.Predefined(modulesInfo.ownHeaders, modulesInfo.modules)
         includes = modulesInfo.topLevelHeaders
     }
 

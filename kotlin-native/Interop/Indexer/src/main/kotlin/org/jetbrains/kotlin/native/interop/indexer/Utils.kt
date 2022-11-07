@@ -834,8 +834,8 @@ private fun filterHeadersByPredefined(
                 unitsHolder.load(info).also { unit ->
                     if (!translationUnits.contains(unit)) {
                         translationUnits.add(unit)
-                        // TODO maybe an optimization can be done here: add only modules specified in deffile
-                        ownTranslationUnits += unit
+                        if (filter.modules.contains(info.module?.name))
+                            ownTranslationUnits += unit
                     }
                 }
             }
@@ -896,6 +896,7 @@ internal fun getContainingFile(cursor: CValue<CXCursor>): CXFile? {
 }
 
 internal val CXFile.path: String get() = clang_getFileName(this).convertAndDispose()
+internal val CXModule.name: String get() = clang_Module_getName(this).convertAndDispose()
 
 // TODO: this map doesn't get cleaned up but adds quite significant performance improvement.
 private val canonicalPaths = ConcurrentHashMap<String, String>()
