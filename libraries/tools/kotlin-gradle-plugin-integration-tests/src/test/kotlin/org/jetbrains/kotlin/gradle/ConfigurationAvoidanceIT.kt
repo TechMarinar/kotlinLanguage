@@ -25,6 +25,26 @@ class ConfigurationAvoidanceIT : KGPBaseTest() {
         }
     }
 
+    @JvmGradlePluginTests
+    @DisplayName("KGP/Jvm does not eagerly configure any tasks")
+    @GradleTest
+    fun testJvmConfigurationAvoidance(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            buildGradle.appendText(
+                """
+                |
+                |tasks.configureEach {
+                |    if (name != "help" && name != "clean") {
+                |        throw new GradleException("Configuration avoidance failure for ${'$'}name!")
+                |    }
+                |}
+                """.trimMargin()
+            )
+
+            build("--dry-run")
+        }
+    }
+
     @AndroidGradlePluginTests
     @DisplayName("Android unrelated tasks are not configured")
     @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_42)

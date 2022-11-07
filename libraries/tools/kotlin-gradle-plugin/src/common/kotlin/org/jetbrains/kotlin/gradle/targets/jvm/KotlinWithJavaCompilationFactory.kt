@@ -44,7 +44,10 @@ class KotlinWithJavaCompilationFactory<KotlinOptionsType : KotlinCommonOptions, 
             },
             compilationAssociator = KotlinJvmCompilationAssociator,
             compilationOutputFactory = { _, compilationName ->
-                KotlinWithJavaCompilationOutput(target.javaSourceSets.maybeCreate(compilationName))
+                KotlinWithJavaCompilationOutput(
+                    target.project.objects,
+                    target.javaSourceSets.maybeCreate(compilationName)
+                )
             },
             compilationDependencyConfigurationsFactory = JvmWithJavaCompilationDependencyConfigurationsFactory(target),
             compilationTaskNamesContainerFactory = JvmWithJavaCompilationTaskNamesContainerFactory(javaSourceSet),
