@@ -164,7 +164,19 @@ internal class PartiallyLinkedIrTreePatcher(
                 super.visitVariable(declaration)
         }
 
+        override fun visitReturn(expression: IrReturn): IrExpression {
+            // TODO: IrReturn.returnTargetSymbol
+            return super.visitReturn(expression)
+        }
+
+        override fun visitBlock(expression: IrBlock): IrExpression {
+            // TODO: IrReturnableBlock.symbol
+            // TODO: IrReturnableBlock.inlineFunctionSymbol
+            return super.visitBlock(expression)
+        }
+
         override fun visitTypeOperator(expression: IrTypeOperatorCall): IrExpression {
+            // TODO: IrTypeOperatorCall.typeOperandClassifier
             return expression.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes {
                 type.partialLinkageReason() ?: typeOperand.partialLinkageReason()
             } ?: super.visitTypeOperator(expression)
@@ -174,6 +186,11 @@ internal class PartiallyLinkedIrTreePatcher(
             return expression.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes {
                 type.partialLinkageReason() ?: varargElementType.partialLinkageReason()
             } ?: super.visitVararg(expression)
+        }
+
+        override fun visitDeclarationReference(expression: IrDeclarationReference): IrExpression {
+            // TODO: IrDeclarationReference.symbol
+            return super.visitDeclarationReference(expression)
         }
 
         override fun visitClassReference(expression: IrClassReference): IrExpression {
@@ -187,6 +204,35 @@ internal class PartiallyLinkedIrTreePatcher(
                 type.partialLinkageReason()
                     ?: (0 until typeArgumentsCount).firstNotNullOfOrNull { index -> getTypeArgument(index)?.partialLinkageReason() }
             } ?: super.visitMemberAccess(expression)
+        }
+
+        override fun visitCall(expression: IrCall): IrExpression {
+            // TODO: IrCall.superQualifierSymbol
+            return super.visitCall(expression)
+        }
+
+        override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
+            // TODO: IrFunctionReference.reflectionTarget
+            return super.visitFunctionReference(expression)
+        }
+
+        override fun visitPropertyReference(expression: IrPropertyReference): IrExpression {
+            // TODO: IrPropertyReference.delegate
+            // TODO: IrPropertyReference.getter
+            // TODO: IrPropertyReference.setter
+            return super.visitPropertyReference(expression)
+        }
+
+        override fun visitLocalDelegatedPropertyReference(expression: IrLocalDelegatedPropertyReference): IrExpression {
+            // TODO: IrLocalDelegatedPropertyReference.delegate
+            // TODO: IrLocalDelegatedPropertyReference.getter
+            // TODO: IrLocalDelegatedPropertyReference.setter
+            return super.visitLocalDelegatedPropertyReference(expression)
+        }
+
+        override fun visitInstanceInitializerCall(expression: IrInstanceInitializerCall): IrExpression {
+            // TODO: IrInstanceInitializerCall.classSymbol
+            return super.visitInstanceInitializerCall(expression)
         }
 
         override fun visitExpression(expression: IrExpression): IrExpression {
