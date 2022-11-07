@@ -131,6 +131,11 @@ internal inline fun WasmCharArray.createString(): String =
     String(null, this.len(), this)
 
 internal fun stringLiteral(poolId: Int, startAddress: Int, length: Int): String {
+    // TODO:
+    //  - why it's called on init?
+    //  - use raw wasm array for stringPool?
+    // see $kotlin.wasm.internal.fieldInit
+
     val cached = stringPool[poolId]
     if (cached !== null) {
         return cached

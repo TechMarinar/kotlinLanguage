@@ -92,7 +92,7 @@ abstract class BasicWasmBoxTest(
             val psiFiles = createPsiFiles(allSourceFiles.map { File(it).canonicalPath }.sorted())
             val config = createConfig(languageVersionSettings)
             val filesToCompile = psiFiles.map { TranslationUnit.SourceFile(it).file }
-            val debugMode = DebugMode.fromSystemProperty("kotlin.wasm.debugMode")
+            val debugMode = DebugMode.DEBUG //DebugMode.fromSystemProperty("kotlin.wasm.debugMode")
 
             val phaseConfig = if (debugMode >= DebugMode.SUPER_DEBUG) {
                 val dumpOutputDir = File(outputDirBase, "irdump")
@@ -148,23 +148,25 @@ abstract class BasicWasmBoxTest(
                 generateWat = generateWat,
             )
 
-            val startUnitTests = if (startUnitTests) "exports.startUnitTests?.();\n" else ""
+            val startUnitTests = if (startUnitTests) "exports.startUnitTests?.();" else ""
 
             val testJsQuiet = """
-                import exports from './index.mjs';
-        
-                let actualResult
                 try {
-                    ${startUnitTests}actualResult = exports.box();
+                    let exports = await import('./index.mjs');
+                    $startUnitTests
+                    let actualResult = exports.default.box();
+                
+                    if (actualResult !== "OK") {
+                        throw `Wrong box result '${'$'}{actualResult}'; Expected "OK"`;
+                    }
                 } catch(e) {
                     console.log('Failed with exception!')
                     console.log('Message: ' + e.message)
                     console.log('Name:    ' + e.name)
                     console.log('Stack:')
                     console.log(e.stack)
+                    throw 'Failed';
                 }
-                if (actualResult !== "OK")
-                    throw `Wrong box result '${'$'}{actualResult}'; Expected "OK"`;
             """.trimIndent()
 
             val testJsVerbose = testJsQuiet + """

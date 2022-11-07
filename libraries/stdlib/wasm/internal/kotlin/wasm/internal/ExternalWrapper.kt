@@ -138,14 +138,15 @@ private fun Any.asWasmExternRef(): ExternalInterfaceType =
 internal external fun isNullish(ref: ExternalInterfaceType?): Boolean
 
 internal fun externRefToAny(ref: ExternalInterfaceType): Any? {
-    // If ref is an instance of kotlin class -- return it cased to Any
+    // If ref is an instance of kotlin class -- return it casted to Any
     val refAsAnyref = ref.externAsWasmAnyref()
-    if (wasm_ref_is_data(refAsAnyref)) {
-        val refAsDataRef = wasm_ref_as_data(refAsAnyref)
-        if (wasm_ref_test<Any>(refAsDataRef)) {
-            return wasm_ref_cast<Any>(refAsDataRef)
+//    if (wasm_ref_is_data(refAsAnyref)) {
+//        val refAsDataRef = wasm_ref_as_data(refAsAnyref)
+        //
+        if (wasm_ref_test<Any>(refAsAnyref)) {
+            return wasm_ref_cast<Any>(refAsAnyref)
         }
-    }
+//    }
 
     // If we have Null in notNullRef -- return null
     // If we already have a box -- return it,

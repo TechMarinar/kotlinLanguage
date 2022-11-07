@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.name.Name
  * WebAssembly allows only constant expressions to be used directly in
  * field initializers.
  */
+// TODO Do we still need this?
 class FieldInitializersLowering(val context: WasmBackendContext) : FileLoweringPass {
     private val stringPoolFqName = context.kotlinWasmInternalPackageFqn.child(Name.identifier("stringPool"))
 
