@@ -31,9 +31,7 @@ object FirConstructorAllowedChecker : FirConstructorChecker() {
         }
         when (containingClass.classKind) {
             ClassKind.OBJECT -> reporter.reportOn(source, FirErrors.CONSTRUCTOR_IN_OBJECT, context)
-            ClassKind.INTERFACE -> if (!declaration.isPrimary) {
-                reporter.reportOn(source, FirErrors.CONSTRUCTOR_IN_INTERFACE, context)
-            }
+            ClassKind.INTERFACE -> reporter.reportOn(source, FirErrors.CONSTRUCTOR_IN_INTERFACE, context)
             ClassKind.ENUM_ENTRY -> reporter.reportOn(source, FirErrors.CONSTRUCTOR_IN_OBJECT, context)
             ClassKind.ENUM_CLASS -> if (declaration.visibility != Visibilities.Private) {
                 reporter.reportOn(source, FirErrors.NON_PRIVATE_CONSTRUCTOR_IN_ENUM, context)
