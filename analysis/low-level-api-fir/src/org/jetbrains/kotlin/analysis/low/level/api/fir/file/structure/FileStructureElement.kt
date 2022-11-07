@@ -57,7 +57,14 @@ internal class KtToFirMapping(firElement: FirElement, recorder: FirElementsRecor
         var current: PsiElement? = element
         while (current != null && current !is KtFile) {
             if (current is KtElement) {
-                getElement(current, firResolveSession)?.let { return it }
+                getElement(current, firResolveSession)?.let {
+                    if (it is FirProperty && it.name.isSpecial &&
+                        it.name.asStringStripSpecialMarkers().substringAfter("index_", "").toIntOrNull() != null
+                    ) {
+                        return it.initializer
+                    }
+                    return it
+                }
             }
             current = current.parent
         }

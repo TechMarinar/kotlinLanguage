@@ -39,20 +39,14 @@ internal class KtFirCompileTimeConstantProvider(
         sourcePsi: KtExpression,
         mode: KtConstantEvaluationMode,
     ): KtConstantValue? {
-        return when {
-            fir is FirPropertyAccessExpression || fir is FirExpression || fir is FirNamedReference -> {
+        return when (fir) {
+            is FirPropertyAccessExpression, is FirExpression, is FirNamedReference -> {
                 try {
                     FirCompileTimeConstantEvaluator.evaluateAsKtConstantValue(fir, mode)
                 } catch (e: ArithmeticException) {
                     KtConstantValue.KtErrorConstantValue(e.localizedMessage, sourcePsi)
                 }
             }
-            fir is FirProperty && fir.name.isSpecial -> {
-                //see BaseFirBuilder#generateIncrementOrDecrementBlockForArrayAccess
-                //for generated temp properties
-                evaluateFir(fir.initializer, sourcePsi, mode)
-            }
-
             // For invalid code like the following,
             // ```
             // when {
@@ -61,7 +55,7 @@ internal class KtFirCompileTimeConstantProvider(
             // ```
             // `false` does not have a corresponding elements on the FIR side and hence the containing `FirWhenBranch` is returned. In this
             // case, we simply report null since FIR does not know about it.
-            fir is FirWhenBranch -> null
+            is FirWhenBranch -> null
             else -> throwUnexpectedFirElementError(fir, sourcePsi)
         }
     }
