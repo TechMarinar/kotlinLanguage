@@ -7,7 +7,7 @@
 
 # **Warning** Don't execute the script or any part of it till you verify it is safe for your environment.
 
-# Script for building reproducible-maven.zip from sources. This is a full set of artefacts published to maven central during
+# Script for building reproducible-maven.zip from sources. This is a full set of artifacts published to maven central during
 # the Kotlin release process.
 
 # Run the script in the root Kotlin directory.
@@ -38,28 +38,28 @@ mvn -DnewVersion=$DEPLOY_VERSION -DgenerateBackupPoms=false -DprocessAllModules=
   -Pteamcity=true \
   install publish
 
-# Additionally publish same artefacts to a dedicated directory to collect the archive later
+# Additionally publish same artifacts to a dedicated directory to collect the archive later
 ./gradlew \
   -PdeployVersion=$DEPLOY_VERSION \
   -Pbuild.number=$BUILD_NUMBER \
   -Pversions.kotlin-native=$KOTLIN_NATIVE_VERSION \
   -Pteamcity=true \
   -PdeployRepo=local \
-  -PdeployRepoUrl=file:///$(pwd)/build/maven_local \
+  -PdeployRepoUrl=file://$(pwd)/build/maven_local \
   install publish
 
 # Build maven part and publish it to the same directory
 mvn \
   -f libraries/pom.xml \
   clean deploy \
-  -Ddeploy-url=file:///$(pwd)/build/maven_local \
+  -Ddeploy-url=file://$(pwd)/build/maven_local \
   -DskipTests
 
 # Prepare for reproducibility check
-mkdir -p build/maven_reproducable
-cp -R build/maven_local/. build/maven_reproducable
+mkdir -p build/maven_reproducible
+cp -R build/maven_local/. build/maven_reproducible
 # maven-metadata contains lastUpdated section with the build time
-find build/maven_reproducable -name "maven-metadata.xml*" -exec rm -rf {} \;
+find build/maven_reproducible -name "maven-metadata.xml*" -exec rm -rf {} \;
 # Each file has own timestamp that would affect zip file hash if not aligned
-find build/maven_reproducable -exec touch -t "198001010000" {} \;
-cd build/maven_reproducable && zip -rX -9 reproducible-maven-$DEPLOY_VERSION.zip . && cd -
+find build/maven_reproducible -exec touch -t "198001010000" {} \;
+cd build/maven_reproducible && zip -rX -9 reproducible-maven-$DEPLOY_VERSION.zip . && cd -
