@@ -47,12 +47,6 @@ public class Fe10IdeNormalAnalysisSourceModuleCompileTimeConstantEvaluatorTestGe
     }
 
     @Test
-    @TestMetadata("arrayAccessWithInc.kt")
-    public void testArrayAccessWithInc() throws Exception {
-        runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/arrayAccessWithInc.kt");
-    }
-
-    @Test
     @TestMetadata("arrayWithInc.kt")
     public void testArrayWithInc() throws Exception {
         runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/arrayWithInc.kt");
@@ -200,12 +194,6 @@ public class Fe10IdeNormalAnalysisSourceModuleCompileTimeConstantEvaluatorTestGe
     @TestMetadata("propertyInit_UInt.kt")
     public void testPropertyInit_UInt() throws Exception {
         runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/propertyInit_UInt.kt");
-    }
-
-    @Test
-    @TestMetadata("qualifiedInc.kt")
-    public void testQualifiedInc() throws Exception {
-        runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/qualifiedInc.kt");
     }
 
     @Test
