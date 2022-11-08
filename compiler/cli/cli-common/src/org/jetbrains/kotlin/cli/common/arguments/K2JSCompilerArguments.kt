@@ -361,6 +361,8 @@ class K2JSCompilerArguments : CommonCompilerArguments() {
         collector.deprecationWarn(enableJsScripting, false, "-Xenable-js-scripting")
         collector.deprecationWarn(irBaseClassInMetadata, false, "-Xir-base-class-in-metadata")
         collector.deprecationWarn(irNewIr2Js, true, "-Xir-new-ir2js")
+        collector.deprecationWarn(legacyDeprecatedNoWarn, false, "-Xlegacy-deprecated-no-warn")
+        collector.deprecationWarn(useDeprecatedLegacyCompiler, false, "-Xuse-deprecated-legacy-compiler")
 
         return super.configureAnalysisFlags(collector, languageVersion).also {
             it[allowFullyQualifiedNameInKClass] = wasm && wasmKClassFqn //Only enabled WASM BE supports this flag
