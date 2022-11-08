@@ -449,13 +449,24 @@ internal class Llvm(private val context: Context, val module: LLVMModuleRef) : R
         val allDependencies: List<CachedBitcodeDependency>
 
         init {
+            val moduleDeserializers = context.irLinker.moduleDeserializers.values.associateBy { it.klib }
             for (library in immediateBitcodeDependencies) {
                 if (library == context.config.libraryToCache?.klib) continue
-                val filesUsed = usedBitcode[library]?.map { CacheSupport.cacheFileId(it.fqName, it.filePath) }
-
                 val cache = context.config.cachedLibraries.getLibraryCache(library)
+
                 if (cache != null) {
-                    if (filesUsed == null) {
+                    val filesUsed = buildList {
+                        usedBitcode[library]?.forEach {
+                            add(CacheSupport.cacheFileId(it.fqName, it.filePath))
+                        }
+                        val moduleDeserializer = moduleDeserializers[library]
+                                ?: error("No module deserializer for cached library ${library.uniqueName}")
+                        moduleDeserializer.eagerInitializedFiles.forEach {
+                            add(CacheSupport.cacheFileId(it.fqName.asString(), it.path))
+                        }
+                    }
+
+                    if (filesUsed.isEmpty()) {
                         moduleDependencies.add(library)
                         addAllDependencies(cache)
                     } else {

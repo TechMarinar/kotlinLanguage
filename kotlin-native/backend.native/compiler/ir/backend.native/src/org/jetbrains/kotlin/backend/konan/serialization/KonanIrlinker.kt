@@ -198,6 +198,29 @@ internal object ClassFieldsSerializer {
     }
 }
 
+class SerializedEagerInitializedProperty(val file: Int, val signature: Int)
+
+internal object EagerInitializedPropertySerializer {
+    fun serialize(properties: List<SerializedEagerInitializedProperty>): ByteArray {
+        val size = properties.sumOf { Int.SIZE_BYTES * 2 }
+        val stream = ByteArrayStream(ByteArray(size))
+        properties.forEach {
+            stream.writeInt(it.file)
+            stream.writeInt(it.signature)
+        }
+        return stream.buf
+    }
+
+    fun deserializeTo(data: ByteArray, result: MutableList<SerializedEagerInitializedProperty>) {
+        val stream = ByteArrayStream(data)
+        while (stream.hasData()) {
+            val file = stream.readInt()
+            val signature = stream.readInt()
+            result.add(SerializedEagerInitializedProperty(file, signature))
+        }
+    }
+}
+
 internal fun ProtoClass.findClass(irClass: IrClass, fileReader: IrLibraryFile, symbolDeserializer: IrSymbolDeserializer): ProtoClass {
     val signature = irClass.symbol.signature ?: error("No signature for ${irClass.render()}")
     var result: ProtoClass? = null
@@ -632,6 +655,25 @@ internal class KonanIrLinker(
                     })
         }
 
+        fun buildEagerInitializedProperty(irProperty: IrProperty): SerializedEagerInitializedProperty {
+            val signature = irProperty.symbol.signature
+                    ?: error("No signature for ${irProperty.render()}")
+            require(signature.topLevelSignature() == signature) { "Expected a top level property: ${irProperty.render()}" }
+            val fileDeserializationState = moduleReversedFileIndex[signature]
+                    ?: error("No file deserializer for ${signature.render()}")
+            val fileDeserializer = fileDeserializationState.fileDeserializer
+            val declarationIndex = fileDeserializer.reversedSignatureIndex[signature]
+                    ?: error("No declaration for ${signature.render()}")
+            val fileReader = fileDeserializationState.fileReader
+            val protoDeclaration = fileReader.declaration(declarationIndex)
+            val protoProperty = protoDeclaration.irProperty
+
+            return SerializedEagerInitializedProperty(
+                    fileDeserializationState.fileIndex,
+                    BinarySymbolData.decode(protoProperty.base.symbol).signatureId
+            )
+        }
+
         private val descriptorByIdSignatureFinder = DescriptorByIdSignatureFinderImpl(
                 moduleDescriptor, KonanManglerDesc,
                 DescriptorByIdSignatureFinderImpl.LookupMode.MODULE_ONLY
@@ -839,6 +881,13 @@ internal class KonanIrLinker(
                             name, type, isConst = (field.flags and SerializedClassFieldInfo.FLAG_IS_CONST) != 0, irField = null)
                 }
             }
+        }
+
+        val eagerInitializedFiles by lazy {
+            val cache = cachedLibraries.getLibraryCache(klib)!! // ?: error("No cache for ${klib.libraryName}") // KT-54668
+            cache.serializedEagerInitializedProperties
+                    .map { fileDeserializationStates[it.file].file }
+                    .distinct()
         }
 
         val sortedFileIds by lazy {

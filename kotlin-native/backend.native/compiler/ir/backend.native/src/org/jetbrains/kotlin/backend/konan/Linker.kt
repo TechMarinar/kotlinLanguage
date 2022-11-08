@@ -2,6 +2,7 @@ package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.backend.konan.llvm.Llvm
 import org.jetbrains.kotlin.backend.konan.serialization.ClassFieldsSerializer
+import org.jetbrains.kotlin.backend.konan.serialization.EagerInitializedPropertySerializer
 import org.jetbrains.kotlin.backend.konan.serialization.InlineFunctionBodyReferenceSerializer
 import org.jetbrains.kotlin.konan.KonanExternalToolFailure
 import org.jetbrains.kotlin.konan.exec.Command
@@ -51,6 +52,7 @@ internal class CacheStorage(val context: Context) {
         saveCacheBitcodeDependencies()
         saveInlineFunctionBodies()
         saveClassFields()
+        saveEagerInitializedProperties()
     }
 
     private fun saveCacheBitcodeDependencies() {
@@ -87,6 +89,11 @@ internal class CacheStorage(val context: Context) {
     private fun saveClassFields() {
         outputFiles.classFieldsFile!!.writeBytes(
                 ClassFieldsSerializer.serialize(context.generationState.classFields))
+    }
+
+    private fun saveEagerInitializedProperties() {
+        outputFiles.eagerInitializedPropertiesFile!!.writeBytes(
+                EagerInitializedPropertySerializer.serialize(context.generationState.eagerInitializedProperties))
     }
 }
 

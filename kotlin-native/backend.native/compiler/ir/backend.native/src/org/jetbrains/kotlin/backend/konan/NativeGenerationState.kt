@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.backend.konan.llvm.Llvm
 import org.jetbrains.kotlin.backend.konan.llvm.LlvmDeclarations
 import org.jetbrains.kotlin.backend.konan.llvm.verifyModule
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedClassFields
+import org.jetbrains.kotlin.backend.konan.serialization.SerializedEagerInitializedProperty
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedInlineFunctionReference
 import org.jetbrains.kotlin.ir.declarations.IrAttributeContainer
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -58,6 +59,7 @@ internal class NativeGenerationState(private val context: Context) {
 
     val inlineFunctionBodies = mutableListOf<SerializedInlineFunctionReference>()
     val classFields = mutableListOf<SerializedClassFields>()
+    val eagerInitializedProperties = mutableListOf<SerializedEagerInitializedProperty>()
     val calledFromExportedInlineFunctions = mutableSetOf<IrFunction>()
     val constructedFromExportedInlineFunctions = mutableSetOf<IrClass>()
     val loweredInlineFunctions = mutableMapOf<IrFunction, InlineFunctionOriginInfo>()

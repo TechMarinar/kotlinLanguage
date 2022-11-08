@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.konan.lower
 
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.DECLARATION_ORIGIN_FUNCTION_CLASS
+import org.jetbrains.kotlin.backend.konan.KonanFqNames
 import org.jetbrains.kotlin.backend.konan.serialization.KonanIrLinker
 import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerIr
 import org.jetbrains.kotlin.ir.IrElement
@@ -43,6 +44,16 @@ internal class CacheInfoBuilder(private val context: Context, private val module
                 if (!declaration.isFakeOverride && declaration.isInline && declaration.isExported) {
                     context.generationState.inlineFunctionBodies.add(buildInlineFunctionReference(declaration))
                     trackCallees(declaration)
+                }
+            }
+
+            override fun visitProperty(declaration: IrProperty) {
+                declaration.acceptChildrenVoid(this)
+
+                if (declaration.parent is IrFile
+                        && declaration.hasAnnotation(KonanFqNames.eagerInitialization)
+                ) {
+                    context.generationState.eagerInitializedProperties.add(buildEagerInitializedProperty(declaration))
                 }
             }
         })
