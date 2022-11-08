@@ -30,7 +30,7 @@ internal sealed interface PartialLinkageCase {
     /**
      * Declaration's signature uses partially linked symbol.
      */
-    class DeclarationUsesPartiallyLinkedSymbol(
+    class DeclarationUsesPartiallyLinkedClassifier(
         val declaration: IrDeclaration,
         val cause: LinkedClassifierStatus.Partially
     ) : PartialLinkageCase
@@ -49,6 +49,16 @@ internal sealed interface PartialLinkageCase {
     class ExpressionUsesPartiallyLinkedClassifier(
         val expression: IrExpression,
         val cause: LinkedClassifierStatus.Partially
+    ) : PartialLinkageCase
+
+    /**
+     * A hybrid between [DeclarationUsesPartiallyLinkedClassifier] and [ExpressionUsesPartiallyLinkedClassifier].
+     * The partially linked classifier not referenced from the expression directly (via types), but instead it is referenced
+     * from the declaration that is directly available for the expression.
+     */
+    class ExpressionUsesDeclarationThatUsesPartiallyLinkedClassifier(
+        val expression: IrExpression,
+        val cause: DeclarationUsesPartiallyLinkedClassifier
     ) : PartialLinkageCase
 
     /** Unimplemented abstract callable member in non-abstract class. */

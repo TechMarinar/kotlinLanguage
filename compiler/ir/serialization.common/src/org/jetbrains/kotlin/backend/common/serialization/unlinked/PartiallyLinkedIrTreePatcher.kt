@@ -25,26 +25,18 @@ import kotlin.properties.Delegates
 
 internal class PartiallyLinkedIrTreePatcher(
     private val builtIns: IrBuiltIns,
-    private val markerTypeHandler: PartiallyLinkedMarkerTypeHandler,
     private val classifierExplorer: LinkedClassifierExplorer,
     private val messageLogger: IrMessageLogger
 ) {
-    fun patchUsageOfUnlinkedSymbols(roots: Collection<IrElement>) {
-        roots.forEach { it.transformChildrenVoid(UsageTransformer()) }
+    fun patch(roots: Collection<IrElement>) {
+        val declarationsTransformer = DeclarationsTransformer()
+        roots.forEach { it.transformChildrenVoid(declarationsTransformer) }
+
+        val expressionsTransformer = ExpressionsTransformer()
+        roots.forEach { it.transformChildrenVoid(expressionsTransformer) }
     }
 
-    private inner class UsageTransformer : IrElementTransformerVoid() {
-        private var currentFile: IrFile? = null
-
-        override fun visitFile(declaration: IrFile): IrFile {
-            currentFile = declaration
-            return try {
-                super.visitFile(declaration)
-            } finally {
-                currentFile = null
-            }
-        }
-
+    private inner class DeclarationsTransformer : IrElementTransformerVoid() {
         override fun visitClass(declaration: IrClass): IrStatement {
             // Discover the reason why the class itself is partially linked.
             val partialLinkageReason = declaration.symbol.partialLinkageReason()
@@ -53,7 +45,7 @@ internal class PartiallyLinkedIrTreePatcher(
                 val partialLinkageCase = when (partialLinkageReason) {
                     is Partially.MissingClassifier -> MissingDeclaration(declaration.symbol)
                     is Partially.MissingEnclosingClass -> MissingEnclosingClass(declaration)
-                    is Partially.DueToOtherClassifier -> DeclarationUsesPartiallyLinkedSymbol(declaration, partialLinkageReason.rootCause)
+                    is Partially.DueToOtherClassifier -> DeclarationUsesPartiallyLinkedClassifier(declaration, partialLinkageReason.rootCause)
                 }
 
                 val anonInitializer = declaration.declarations.firstNotNullOfOrNull { it as? IrAnonymousInitializer }
@@ -86,7 +78,7 @@ internal class PartiallyLinkedIrTreePatcher(
                 PartiallyLinkedDeclarationOrigin.UNIMPLEMENTED_ABSTRACT_CALLABLE_MEMBER -> UnimplementedAbstractCallable(declaration as IrOverridableDeclaration<*>)
                 PartiallyLinkedDeclarationOrigin.MISSING_DECLARATION -> MissingDeclaration(declaration.symbol)
                 else -> if (signaturePartialLinkageReason != null)
-                    DeclarationUsesPartiallyLinkedSymbol(declaration, signaturePartialLinkageReason)
+                    DeclarationUsesPartiallyLinkedClassifier(declaration, signaturePartialLinkageReason)
                 else
                     null
             }
@@ -108,31 +100,32 @@ internal class PartiallyLinkedIrTreePatcher(
          * Returns the first [Partially] from the first encountered partially linked type.
          */
         private fun IrFunction.rewriteTypes(): Partially? {
+            // Accept the first one. Ignore all subsequent.
             var result: Partially? by Delegates.vetoable(null) { _, oldValue, _ -> oldValue == null }
 
             fun IrValueParameter.fixType() {
-                val partialLinkageReason = type.partialLinkageReason() ?: varargElementType?.partialLinkageReason()
-                if (partialLinkageReason != null) {
-                    type = markerTypeHandler.markerType
+                val newType = type.toPartiallyLinkedMarkerTypeOrNull() ?: varargElementType?.toPartiallyLinkedMarkerTypeOrNull()
+                if (newType != null) {
+                    type = newType
                     defaultValue = null
-                    if (varargElementType != null) varargElementType = markerTypeHandler.markerType
-                    result = partialLinkageReason
+                    if (varargElementType != null) varargElementType = newType
+                    result = newType.partialLinkageReason
                 }
             }
 
             extensionReceiverParameter?.fixType()
             valueParameters.forEach { it.fixType() }
 
-            returnType.partialLinkageReason()?.let { partialLinkageReason ->
-                returnType = markerTypeHandler.markerType
-                result = partialLinkageReason
+            returnType.toPartiallyLinkedMarkerTypeOrNull()?.let { newType ->
+                returnType = newType
+                result = newType.partialLinkageReason
             }
 
             typeParameters.forEach { tp ->
-                val partialLinkageReason = tp.superTypes.firstNotNullOfOrNull { st -> st.partialLinkageReason() }
-                if (partialLinkageReason != null) {
-                    tp.superTypes = listOf(markerTypeHandler.markerType)
-                    result = partialLinkageReason
+                val newType = tp.superTypes.firstNotNullOfOrNull { st -> st.toPartiallyLinkedMarkerTypeOrNull() }
+                if (newType != null) {
+                    tp.superTypes = listOf(newType)
+                    result = newType.partialLinkageReason
                 }
             }
 
@@ -147,111 +140,185 @@ internal class PartiallyLinkedIrTreePatcher(
         }
 
         override fun visitField(declaration: IrField): IrStatement {
-            return if (declaration.type.isPartiallyLinkedType()) {
-                declaration.type = markerTypeHandler.markerType
-                declaration.initializer = null
-                declaration
-            } else
-                super.visitField(declaration)
+            return when (val newType = declaration.type.toPartiallyLinkedMarkerTypeOrNull()) {
+                null -> super.visitField(declaration)
+                else -> {
+                    declaration.type = newType
+                    declaration.initializer = null
+                    declaration
+                }
+            }
         }
 
         override fun visitVariable(declaration: IrVariable): IrStatement {
-            return if (declaration.type.isPartiallyLinkedType()) {
-                declaration.type = markerTypeHandler.markerType
-                declaration.initializer = null
-                declaration
-            } else
-                super.visitVariable(declaration)
+            return when (val newType = declaration.type.toPartiallyLinkedMarkerTypeOrNull()) {
+                null -> super.visitVariable(declaration)
+                else -> {
+                    declaration.type = newType
+                    declaration.initializer = null
+                    declaration
+                }
+            }
+        }
+
+        private fun <S : IrSymbol> IrOverridableDeclaration<S>.filterOverriddenSymbols() {
+            overriddenSymbols = overriddenSymbols.filter { symbol ->
+                val owner = symbol.owner as IrDeclaration
+                owner.origin != PartiallyLinkedDeclarationOrigin.MISSING_DECLARATION
+                        // Handle the case when the overridden declaration became private.
+                        && (owner as? IrDeclarationWithVisibility)?.visibility != DescriptorVisibilities.PRIVATE
+            }
+        }
+    }
+
+    private inner class ExpressionsTransformer : IrElementTransformerVoid() {
+        private var currentFile: IrFile? = null
+
+        override fun visitFile(declaration: IrFile): IrFile {
+            currentFile = declaration
+            return try {
+                super.visitFile(declaration)
+            } finally {
+                currentFile = null
+            }
         }
 
         override fun visitReturn(expression: IrReturn): IrExpression {
-            // TODO: IrReturn.returnTargetSymbol
-            return super.visitReturn(expression)
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase(returnTargetSymbol)
+            } ?: super.visitReturn(expression)
         }
 
         override fun visitBlock(expression: IrBlock): IrExpression {
-            // TODO: IrReturnableBlock.symbol
-            // TODO: IrReturnableBlock.inlineFunctionSymbol
-            return super.visitBlock(expression)
+            return (expression as? IrReturnableBlock)?.maybeThrowLinkageError {
+                partialLinkageCase(inlineFunctionSymbol)
+            } ?: super.visitBlock(expression)
         }
 
         override fun visitTypeOperator(expression: IrTypeOperatorCall): IrExpression {
-            // TODO: IrTypeOperatorCall.typeOperandClassifier
-            return expression.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes {
-                type.partialLinkageReason() ?: typeOperand.partialLinkageReason()
+            expression.maybeThrowLinkageError {
+                partialLinkageCase { type.partialLinkageReason() ?: typeOperand.partialLinkageReason() }
             } ?: super.visitTypeOperator(expression)
         }
 
         override fun visitVararg(expression: IrVararg): IrExpression {
-            return expression.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes {
-                type.partialLinkageReason() ?: varargElementType.partialLinkageReason()
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase { type.partialLinkageReason() ?: varargElementType.partialLinkageReason() }
             } ?: super.visitVararg(expression)
         }
 
         override fun visitDeclarationReference(expression: IrDeclarationReference): IrExpression {
-            // TODO: IrDeclarationReference.symbol
-            return super.visitDeclarationReference(expression)
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase(symbol)
+            } ?: super.visitDeclarationReference(expression)
         }
 
         override fun visitClassReference(expression: IrClassReference): IrExpression {
-            return expression.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes {
-                type.partialLinkageReason() ?: classType.partialLinkageReason()
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase { type.partialLinkageReason() ?: classType.partialLinkageReason() }
             } ?: super.visitClassReference(expression)
         }
 
         override fun visitMemberAccess(expression: IrMemberAccessExpression<*>): IrExpression {
-            return expression.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes {
-                type.partialLinkageReason()
-                    ?: (0 until typeArgumentsCount).firstNotNullOfOrNull { index -> getTypeArgument(index)?.partialLinkageReason() }
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase {
+                    type.partialLinkageReason()
+                        ?: (0 until typeArgumentsCount).firstNotNullOfOrNull { index -> getTypeArgument(index)?.partialLinkageReason() }
+                }
             } ?: super.visitMemberAccess(expression)
         }
 
         override fun visitCall(expression: IrCall): IrExpression {
-            // TODO: IrCall.superQualifierSymbol
-            return super.visitCall(expression)
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase(superQualifierSymbol)
+            } ?: super.visitCall(expression)
         }
 
         override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
-            // TODO: IrFunctionReference.reflectionTarget
-            return super.visitFunctionReference(expression)
+            expression.maybeThrowLinkageError {
+                partialLinkageCase(symbol)
+            } ?: super.visitFunctionReference(expression)
         }
 
         override fun visitPropertyReference(expression: IrPropertyReference): IrExpression {
-            // TODO: IrPropertyReference.delegate
-            // TODO: IrPropertyReference.getter
-            // TODO: IrPropertyReference.setter
-            return super.visitPropertyReference(expression)
-        }
-
-        override fun visitLocalDelegatedPropertyReference(expression: IrLocalDelegatedPropertyReference): IrExpression {
-            // TODO: IrLocalDelegatedPropertyReference.delegate
-            // TODO: IrLocalDelegatedPropertyReference.getter
-            // TODO: IrLocalDelegatedPropertyReference.setter
-            return super.visitLocalDelegatedPropertyReference(expression)
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase(field) ?: partialLinkageCase(getter) ?: partialLinkageCase(setter)
+            } ?: super.visitPropertyReference(expression)
         }
 
         override fun visitInstanceInitializerCall(expression: IrInstanceInitializerCall): IrExpression {
-            // TODO: IrInstanceInitializerCall.classSymbol
-            return super.visitInstanceInitializerCall(expression)
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase(classSymbol)
+            } ?: super.visitInstanceInitializerCall(expression)
         }
 
         override fun visitExpression(expression: IrExpression): IrExpression {
-            return expression.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes { type.partialLinkageReason() }
-                ?: super.visitExpression(expression)
+            return expression.maybeThrowLinkageError {
+                partialLinkageCase { type.partialLinkageReason() }
+            } ?: super.visitExpression(expression)
         }
 
-        private inline fun <T : IrExpression> T.throwLinkageErrorIfPartiallyLinkedSymbolsInTypes(
-            computePartialLinkageReason: T.() -> Partially?
-        ): IrCall? {
-            val partialLinkageReason = computePartialLinkageReason(this) ?: return null
-            return ExpressionUsesPartiallyLinkedSymbol(this, partialLinkageReason).throwLinkageError(element = this, file = currentFile)
+        private inline fun <T : IrExpression> T.maybeThrowLinkageError(computePartialLinkageCase: T.() -> PartialLinkageCase?): IrCall? {
+            return computePartialLinkageCase()?.throwLinkageError(element = this, file = currentFile)
         }
+
+        private inline fun <T : IrExpression> T.partialLinkageCase(computePartialLinkageReason: T.() -> Partially?): PartialLinkageCase? {
+            return ExpressionUsesPartiallyLinkedClassifier(this, computePartialLinkageReason() ?: return null)
+        }
+
+        private fun <T : IrExpression> T.partialLinkageCase(symbol: IrSymbol?): PartialLinkageCase? {
+            fun processField(declaration: IrDeclaration, field: IrField?): DeclarationUsesPartiallyLinkedClassifier? {
+                val partialLinkageReason = field?.type?.precalculatedPartialLinkageReason() ?: return null
+                return DeclarationUsesPartiallyLinkedClassifier(declaration, partialLinkageReason)
+            }
+
+            fun processFunction(declaration: IrDeclaration, function: IrFunction?): DeclarationUsesPartiallyLinkedClassifier? {
+                function ?: return null
+                function.returnType.precalculatedPartialLinkageReason() ???
+                TODO()
+            }
+
+            fun processValue(value: IrValueDeclaration): DeclarationUsesPartiallyLinkedClassifier? {
+                val partialLinkageReason = value.type.precalculatedPartialLinkageReason() ?: return null
+                return DeclarationUsesPartiallyLinkedClassifier(value, partialLinkageReason)
+            }
+
+            val owner = symbol?.owner as? IrDeclaration ?: return null
+
+            if (owner.origin == PartiallyLinkedDeclarationOrigin.MISSING_DECLARATION)
+                return ExpressionUsesMissingDeclaration(this, symbol)
+
+            return when (owner) {
+                is IrClass -> partialLinkageCase { owner.symbol.partialLinkageReason() }
+                is IrTypeParameter -> partialLinkageCase { owner.symbol.partialLinkageReason() }
+                is IrEnumEntry -> partialLinkageCase { owner.correspondingClass?.symbol?.partialLinkageReason() }
+                else -> {
+                    val cause = when (owner) {
+                        is IrFunction -> processFunction(owner, owner)
+                        is IrProperty -> processField(owner, owner.backingField)
+                            ?: processFunction(owner, owner.getter)
+                            ?: processFunction(owner, owner.setter)
+                        is IrField -> processField(owner, owner)
+                        is IrValueDeclaration -> processValue(owner)
+                        else -> null
+                    } ?: return null
+
+                    ExpressionUsesDeclarationThatUsesPartiallyLinkedClassifier(this, cause)
+                }
+            }
+        }
+
+        fun IrType.precalculatedPartialLinkageReason(): Partially? =
+            (this as? PartiallyLinkedMarkerType)?.partialLinkageReason ?: partialLinkageReason()
     }
 
     private fun IrClassifierSymbol.partialLinkageReason(): Partially? = classifierExplorer.exploreSymbol(this)
 
     private fun IrType.partialLinkageReason(): Partially? = classifierExplorer.exploreType(this)
     private fun IrType.isPartiallyLinkedType(): Boolean = partialLinkageReason() != null
+
+    private fun IrType.toPartiallyLinkedMarkerTypeOrNull(): PartiallyLinkedMarkerType? =
+        partialLinkageReason()?.let { PartiallyLinkedMarkerType(builtIns, it) }
 
     private fun PartialLinkageCase.throwLinkageError(declaration: IrDeclaration): IrCall =
         throwLinkageError(declaration, declaration.fileOrNull)
@@ -276,15 +343,6 @@ internal class PartiallyLinkedIrTreePatcher(
     }
 
     companion object {
-        private fun <S : IrSymbol> IrOverridableDeclaration<S>.filterOverriddenSymbols() {
-            overriddenSymbols = overriddenSymbols.filter { symbol ->
-                val owner = symbol.owner as IrDeclaration
-                owner.origin != PartiallyLinkedDeclarationOrigin.MISSING_DECLARATION
-                        // Handle the case when the overridden declaration became private.
-                        && (owner as? IrDeclarationWithVisibility)?.visibility != DescriptorVisibilities.PRIVATE
-            }
-        }
-
         private fun IrElement.computeLocationInSourceCode(currentFile: IrFile?): Location? {
             if (currentFile == null) return null
 

@@ -27,11 +27,11 @@ internal fun PartialLinkageCase.renderErrorMessage(): String = buildString {
 
         is MissingEnclosingClass -> appendDeclaration(clazz).append(" is expected to have enclosing class which is missing")
 
-        is DeclarationUsesPartiallyLinkedSymbol -> append("The signature of ").appendDeclaration(declaration)
+        is DeclarationUsesPartiallyLinkedClassifier -> append("The signature of ").appendDeclaration(declaration)
             .append(" uses ").appendCause(cause)
 
-        is ExpressionUsesMissingDeclaration -> appendExpression(expression).append(" because it uses a missing ")
-            .append(missingDeclarationSymbol.declarationKind).append(" ").appendSignature(missingDeclarationSymbol)
+        is ExpressionUsesMissingDeclaration -> appendExpression(expression).append(" because it uses unlinked symbol ")
+            .appendSignature(missingDeclarationSymbol)
 
         is ExpressionUsesPartiallyLinkedClassifier -> appendExpression(expression).append(" because it uses ").appendCause(cause)
 
