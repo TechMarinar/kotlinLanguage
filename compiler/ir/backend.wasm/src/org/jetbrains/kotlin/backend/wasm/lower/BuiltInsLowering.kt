@@ -78,6 +78,7 @@ class BuiltInsLowering(val context: WasmBackendContext) : FileLoweringPass {
             }
 
             irBuiltins.eqeqeqSymbol -> {
+                // TODO support nulls
                 val type = call.getValueArgument(0)!!.type
                 val newSymbol = symbols.equalityFunctions[type] ?: symbols.floatEqualityFunctions[type] ?: symbols.refEq
                 return irCall(call, newSymbol)

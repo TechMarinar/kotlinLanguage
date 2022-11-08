@@ -58,7 +58,9 @@ class FieldInitializersLowering(val context: WasmBackendContext) : FileLoweringP
                 val initializerStatement = builder.at(initValue).irSetField(null, declaration, initValue)
 
                 when (declaration.fqNameWhenAvailable) {
-                    stringPoolFqName -> startFunctionBody.statements.add(0, initializerStatement)
+                    stringPoolFqName ->
+                         return
+//                        startFunctionBody.statements.add(0, initializerStatement)
                     else -> startFunctionBody.statements.add(initializerStatement)
                 }
 

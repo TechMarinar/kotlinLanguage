@@ -13,16 +13,18 @@ import org.jetbrains.kotlin.backend.common.lower.irBlock
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
 import org.jetbrains.kotlin.backend.wasm.lower.WasmPropertyReferenceLowering.KTypeGeneratorInterface
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.declarations.IrDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOriginImpl
-import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrLocalDelegatedPropertyReference
-import org.jetbrains.kotlin.ir.expressions.IrPropertyReference
+import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrFieldSymbolImpl
+import org.jetbrains.kotlin.ir.symbols.impl.IrPropertySymbolImpl
+import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrFail
@@ -99,7 +101,8 @@ internal class WasmPropertyReferenceLowering(val context: WasmBackendContext) : 
 
         val kPropertiesFieldType: IrType = arrayClass.typeWith(kPropertyImplType)
 
-        val kPropertiesField =
+        // TODO init lazily using fun
+        val kPropertiesField_ =
             context.irFactory.createField(
                 SYNTHETIC_OFFSET, SYNTHETIC_OFFSET,
                 DECLARATION_ORIGIN_KPROPERTIES_FOR_DELEGATION,
@@ -113,6 +116,64 @@ internal class WasmPropertyReferenceLowering(val context: WasmBackendContext) : 
             ).apply {
                 parent = irFile
             }
+
+        val kPropertiesProperty = context.irFactory.createProperty(
+            -1, -1,
+            DECLARATION_ORIGIN_KPROPERTIES_FOR_DELEGATION,
+            IrPropertySymbolImpl(),
+            name = kPropertiesField_.name,
+            visibility = DescriptorVisibilities.DEFAULT_VISIBILITY,
+            modality = Modality.FINAL,
+            isConst = false,
+            isVar = false,
+            isDelegated = false,
+            isLateinit = false,
+            isExternal = false,
+        ).apply {
+            parent = irFile
+            val prop = this
+            kPropertiesField_.correspondingPropertySymbol = prop.symbol
+
+            backingField = kPropertiesField_
+            getter = context.irFactory.createFunction(
+                -1, -1,
+                IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR,
+//                DECLARATION_ORIGIN_KPROPERTIES_FOR_DELEGATION,
+                IrSimpleFunctionSymbolImpl(),
+                Name.identifier("<get-" + kPropertiesField_.name + ">"),
+                visibility = DescriptorVisibilities.DEFAULT_VISIBILITY,
+                modality = Modality.FINAL,
+                kPropertiesField_.type,
+                isInline = false,
+                isExternal = false,
+                isTailrec = false,
+                isSuspend = false,
+                isOperator = false,
+                isInfix = false,
+                isExpect = false,
+            ).apply {
+                parent = irFile
+                correspondingPropertySymbol = prop.symbol
+
+                this.body = context.irFactory.createBlockBody(
+                    -1, -1,
+                    listOf(
+                        IrReturnImpl(
+                            -1, -1,
+                            context.irBuiltIns.nothingType,
+                            symbol,
+                            IrGetFieldImpl(
+                                -1, -1,
+                                kPropertiesField_.symbol,
+                                kPropertiesField_.type,
+                                null, null, null
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
 
         irFile.transformChildrenVoid(object : IrElementTransformerVoidWithContext() {
 
@@ -132,7 +193,7 @@ internal class WasmPropertyReferenceLowering(val context: WasmBackendContext) : 
                             }
 
                             irCall(arrayItemGetter).apply {
-                                dispatchReceiver = irGetField(null, kPropertiesField)
+                                dispatchReceiver = irCall(kPropertiesProperty.getter!!)
                                 putValueArgument(0, irInt(field.second))
                             }
                         }
@@ -166,7 +227,7 @@ internal class WasmPropertyReferenceLowering(val context: WasmBackendContext) : 
                         }
 
                         return irCall(arrayItemGetter).apply {
-                            dispatchReceiver = irGetField(null, kPropertiesField)
+                            dispatchReceiver = irCall(kPropertiesProperty.getter!!)
                             putValueArgument(0, irInt(field.second))
                         }
                     }
@@ -177,11 +238,11 @@ internal class WasmPropertyReferenceLowering(val context: WasmBackendContext) : 
         if (kProperties.isNotEmpty()) {
             val initializers = kProperties.values.sortedBy { it.second }.map { it.first }
             // TODO: replace with static initialization.
-            kPropertiesField.initializer = context.irFactory.createExpressionBody(
+            kPropertiesProperty.backingField!!.initializer = context.irFactory.createExpressionBody(
                 SYNTHETIC_OFFSET, SYNTHETIC_OFFSET,
                 context.createArrayOfExpression(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, kPropertyImplType, initializers)
             )
-            irFile.declarations.add(0, kPropertiesField)
+            irFile.declarations.add(0, kPropertiesProperty)
         }
     }
 
@@ -309,5 +370,5 @@ internal class WasmPropertyReferenceLowering(val context: WasmBackendContext) : 
         return type.classifier == expectedClass
     }
 
-    private object DECLARATION_ORIGIN_KPROPERTIES_FOR_DELEGATION : IrDeclarationOriginImpl("KPROPERTIES_FOR_DELEGATION")
+    private val DECLARATION_ORIGIN_KPROPERTIES_FOR_DELEGATION = JsLoweredDeclarationOrigin.DECLARATION_ORIGIN_KPROPERTIES_FOR_DELEGATION
 }

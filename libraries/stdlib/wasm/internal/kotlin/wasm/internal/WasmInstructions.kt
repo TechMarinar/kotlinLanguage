@@ -31,6 +31,7 @@ internal fun <T> wasm_array_copy(destination: T, destinationIndex: Int, source: 
 internal fun <T> array_new_data0(address: Int, length: Int): T =
     implementedAsIntrinsic
 
+// internal?
 @WasmOp(WasmOp.I32_EQ)
 public external fun wasm_i32_eq(a: Int, b: Int): Boolean
 

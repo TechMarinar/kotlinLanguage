@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.descriptors.DescriptorVisibilities.INTERNAL
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
+import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.utils.prependFunctionCall
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
@@ -293,4 +294,5 @@ private val compatibleOrigins = listOf(
     IrDeclarationOrigin.PROPERTY_DELEGATE,
     IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR,
     IrDeclarationOrigin.PROPERTY_BACKING_FIELD,
+    JsLoweredDeclarationOrigin.DECLARATION_ORIGIN_KPROPERTIES_FOR_DELEGATION,
 )

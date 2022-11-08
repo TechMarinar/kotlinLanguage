@@ -22,10 +22,14 @@ import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstKind
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.types.classOrNull
+import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.parentOrNull
 import org.jetbrains.kotlin.wasm.ir.*
 
@@ -422,6 +426,7 @@ class DeclarationGenerator(
         )
     }
 
+    private val stringPoolFqName = FqName("kotlin.wasm.internal.stringPool")
 
     override fun visitField(declaration: IrField) {
         // Member fields are generated as part of struct type
@@ -434,10 +439,23 @@ class DeclarationGenerator(
 
         val initValue: IrExpression? = declaration.initializer?.expression
         if (initValue != null) {
-            check(initValue is IrConst<*> && initValue.kind !is IrConstKind.String) {
-                "Static field initializer should be string or const"
+            if (declaration.fqNameWhenAvailable == stringPoolFqName) {
+                wasmExpressionGenerator.buildConstI32Symbol(context.stringPoolSize)
+//                wasmExpressionGenerator.buildConstI32(0)
+                wasmExpressionGenerator.buildInstr(
+                    WasmOp.ARRAY_NEW_DEFAULT,
+                    WasmImmediate.GcType(context.referenceGcType(initValue.type.classOrNull!!))
+                )
+                // $kotlin.wasm.internal.WasmStringArray___type_1094
+//                wasmExpressionGenerator.buildDrop()
+//                val bottomType = WasmRefNullNoneType
+//                wasmExpressionGenerator.buildInstr(WasmOp.REF_NULL, WasmImmediate.HeapType(bottomType))
+            } else {
+                check(initValue is IrConst<*> && initValue.kind !is IrConstKind.String) {
+                    "Static field initializer should be string or const"
+                }
+                generateConstExpression(initValue, wasmExpressionGenerator, context)
             }
-            generateConstExpression(initValue, wasmExpressionGenerator, context)
         } else {
             generateDefaultInitializerForType(wasmType, wasmExpressionGenerator)
         }
@@ -445,7 +463,7 @@ class DeclarationGenerator(
         val global = WasmGlobal(
             name = declaration.fqNameWhenAvailable.toString(),
             type = wasmType,
-            isMutable = true,
+            isMutable = !declaration.isFinal || initValue == null,
             init = initBody
         )
 

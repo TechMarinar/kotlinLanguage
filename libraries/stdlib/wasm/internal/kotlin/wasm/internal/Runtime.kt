@@ -120,4 +120,19 @@ internal fun stringGetPoolSize(): Int =
 
 // This initializer is a special case in FieldInitializersLowering
 @EagerInitialization
-internal val stringPool: Array<String?> = arrayOfNulls(stringGetPoolSize())
+internal val stringPool: WasmStringArray/*<String?>*/ = WasmStringArray(stringGetPoolSize())
+
+@WasmArrayOf(String::class, isNullable = true)
+internal class WasmStringArray(size: Int) {
+    @WasmOp(WasmOp.ARRAY_GET)
+    operator fun get(index: Int): String? =
+        implementedAsIntrinsic
+
+    @WasmOp(WasmOp.ARRAY_SET)
+    operator fun set(index: Int, value: String?): Unit =
+        implementedAsIntrinsic
+
+    @WasmOp(WasmOp.ARRAY_LEN)
+    fun length(): Int =
+        implementedAsIntrinsic
+}

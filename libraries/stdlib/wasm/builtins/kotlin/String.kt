@@ -137,9 +137,27 @@ internal fun stringLiteral(poolId: Int, startAddress: Int, length: Int): String 
     // see $kotlin.wasm.internal.fieldInit
 
     val cached = stringPool[poolId]
-    if (cached !== null) {
+    if (cached != null) { // TODO !== null -> !ref_is_null
         return cached
     }
+    /*
+        ;;--
+        local.tee $3_cached     ;; 2
+        ref.is_null             ;; 1
+        i32.eqz                 ;; 1
+        if                      ;; 1
+            local.get $3_cached ;; 2
+            return              ;; 1
+        else                    ;; 1
+        end
+        ;;--
+
+        block            ;; 1
+            br_on_null 1 ;; 2
+            return       ;; 1
+        end              ;; 1
+        ;;--
+    */
 
     val chars = array_new_data0<WasmCharArray>(startAddress, length)
     val newString = String(null, length, chars)

@@ -578,7 +578,7 @@ val wasmPhases = SameTypeNamedCompilerPhase(
             enumSyntheticFunsLoweringPhase then
 
             sharedVariablesLoweringPhase then
-            propertyReferenceLowering then
+            propertyReferenceLowering then //
             callableReferencePhase then
             singleAbstractMethodPhase then
             localDelegatedPropertiesLoweringPhase then
@@ -587,7 +587,7 @@ val wasmPhases = SameTypeNamedCompilerPhase(
             innerClassesLoweringPhase then
             innerClassesMemberBodyLoweringPhase then
             innerClassConstructorCallsLoweringPhase then
-            propertiesLoweringPhase then
+            propertiesLoweringPhase then //
             primaryConstructorLoweringPhase then
             delegateToPrimaryConstructorLoweringPhase then
             // Common prefix ends
@@ -616,7 +616,7 @@ val wasmPhases = SameTypeNamedCompilerPhase(
             tryCatchCanonicalization then
 
             forLoopsLoweringPhase then
-            propertyLazyInitLoweringPhase then
+            propertyLazyInitLoweringPhase then //
             removeInitializersForLazyProperties then
             propertyAccessorInlinerLoweringPhase then
             stringConcatenationLowering then
@@ -637,7 +637,7 @@ val wasmPhases = SameTypeNamedCompilerPhase(
             eraseVirtualDispatchReceiverParametersTypes then
             bridgesConstructionPhase then
             objectDeclarationLoweringPhase then
-            fieldInitializersLoweringPhase then
+            fieldInitializersLoweringPhase then //
             genericReturnTypeLowering then
             expressionBodyTransformer then
             unitToVoidLowering then
