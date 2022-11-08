@@ -159,6 +159,10 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
         var valueParameterIndex = 0
         var anyOptional = false
 
+        // Optimize the most common case of 1 mask (32 or fewer default arguments) by avoiding boxing when computing mask value.
+        val isSingleMask = parameters.size <= Integer.SIZE
+        var singleMask = 0
+
         for (parameter in parameters) {
             when {
                 args.containsKey(parameter) -> {
@@ -166,8 +170,13 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
                 }
                 // Absent value is already set at _absentArguments
                 parameter.isOptional -> {
-                    val maskIndex = parameterSize + (valueParameterIndex / Integer.SIZE)
-                    arguments[maskIndex] = (arguments[maskIndex] as Int) or (1 shl (valueParameterIndex % Integer.SIZE))
+                    val flag = 1 shl (valueParameterIndex % Integer.SIZE)
+                    if (isSingleMask) {
+                        singleMask = singleMask or flag
+                    } else {
+                        val maskIndex = parameterSize + (valueParameterIndex / Integer.SIZE)
+                        arguments[maskIndex] = arguments[maskIndex] as Int or flag
+                    }
                     anyOptional = true
                 }
                 parameter.isVararg -> {}
@@ -186,6 +195,10 @@ internal abstract class KCallableImpl<out R> : KCallable<R>, KTypeParameterOwner
             // but it is called directly to avoid the processing cost of spread operator.
             @Suppress("UNCHECKED_CAST")
             return caller.call(arguments.copyOf(parameterSize)) as R
+        }
+
+        if (isSingleMask) {
+            arguments[parameterSize] = singleMask
         }
 
         val caller = defaultCaller ?: throw KotlinReflectionInternalError("This callable does not support a default call: $descriptor")
