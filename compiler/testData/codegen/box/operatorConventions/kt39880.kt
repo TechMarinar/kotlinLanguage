@@ -1,3 +1,5 @@
+// IGNORE_BACKEND_FIR: JVM_IR
+//   Disabling of StrictOnlyInputTypesChecks is not supported by FIR
 // WITH_STDLIB
 // !LANGUAGE: -StrictOnlyInputTypesChecks
 
