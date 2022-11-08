@@ -46,6 +46,7 @@ internal class FirIdeRenderer private constructor(
             is FirAnonymousInitializer -> error("FirAnonymousInitializer should not be rendered")
             is FirFile ->  error("FirFile should not be rendered")
             is FirTypeParameter -> renderTypeParameter(declaration)
+            is FirScript -> TODO()
             is FirAnonymousFunction -> TODO()
         }
     }

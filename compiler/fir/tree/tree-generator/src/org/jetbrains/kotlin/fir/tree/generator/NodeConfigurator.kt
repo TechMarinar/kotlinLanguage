@@ -433,6 +433,12 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +symbol("FirFileSymbol")
         }
 
+        script.configure {
+            +name
+            +fieldList(statement).withTransform()
+            +symbol("FirScriptSymbol")
+        }
+
         packageDirective.configure {
             +field("packageFqName", fqNameType)
         }
