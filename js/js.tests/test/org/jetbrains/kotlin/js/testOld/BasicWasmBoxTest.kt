@@ -148,17 +148,16 @@ abstract class BasicWasmBoxTest(
                 generateWat = generateWat,
             )
 
-            val startUnitTests = if (startUnitTests) "exports.startUnitTests?.();" else ""
+            val startUnitTests = if (startUnitTests) "wasmExports.startUnitTests();" else ""
 
             val testJsQuiet = """
+                let actualResult;
                 try {
-                    let exports = await import('./index.mjs');
+                    // Use "dynamic import" to catch exception happened during JS & Wasm modules initialization
+                    let jsModule = await import('./index.mjs');
+                    let wasmExports = jsModule.default;
                     $startUnitTests
-                    let actualResult = exports.default.box();
-                
-                    if (actualResult !== "OK") {
-                        throw `Wrong box result '${'$'}{actualResult}'; Expected "OK"`;
-                    }
+                    actualResult = wasmExports.box();
                 } catch(e) {
                     console.log('Failed with exception!')
                     console.log('Message: ' + e.message)
@@ -166,6 +165,10 @@ abstract class BasicWasmBoxTest(
                     console.log('Stack:')
                     console.log(e.stack)
                     throw 'Failed';
+                }
+
+                if (actualResult !== "OK") {
+                    throw `Wrong box result '${'$'}{actualResult}'; Expected "OK"`;
                 }
             """.trimIndent()
 
