@@ -36,9 +36,17 @@ internal sealed interface PartialLinkageCase {
     ) : PartialLinkageCase
 
     /**
+     * Expression references a missing IR declaration (IR declaration != classifier).
+     */
+    class ExpressionUsesMissingDeclaration(
+        val expression: IrExpression,
+        val missingDeclarationSymbol: IrSymbol
+    ) : PartialLinkageCase
+
+    /**
      * Expression operates on IR type which has partially linked symbol.
      */
-    class ExpressionUsesPartiallyLinkedSymbol(
+    class ExpressionUsesPartiallyLinkedClassifier(
         val expression: IrExpression,
         val cause: LinkedClassifierStatus.Partially
     ) : PartialLinkageCase

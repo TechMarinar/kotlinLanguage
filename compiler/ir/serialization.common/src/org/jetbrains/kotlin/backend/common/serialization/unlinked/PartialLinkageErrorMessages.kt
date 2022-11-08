@@ -30,7 +30,10 @@ internal fun PartialLinkageCase.renderErrorMessage(): String = buildString {
         is DeclarationUsesPartiallyLinkedSymbol -> append("The signature of ").appendDeclaration(declaration)
             .append(" uses ").appendCause(cause)
 
-        is ExpressionUsesPartiallyLinkedSymbol -> appendExpression(expression).append(" because it uses ").appendCause(cause)
+        is ExpressionUsesMissingDeclaration -> appendExpression(expression).append(" because it uses a missing ")
+            .append(missingDeclarationSymbol.declarationKind).append(" ").appendSignature(missingDeclarationSymbol)
+
+        is ExpressionUsesPartiallyLinkedClassifier -> appendExpression(expression).append(" because it uses ").appendCause(cause)
 
         is UnimplementedAbstractCallable -> append("Abstract ").appendDeclaration(callable)
             .append(" is not implemented in non-abstract ").appendDeclaration(callable.parentAsClass)
@@ -156,7 +159,7 @@ private fun StringBuilder.appendExpression(expression: IrExpression): StringBuil
     append(expressionKind.displayName)
 
     if (referencedDeclarationKind != null) {
-        append(" ")
+        if (isNotEmpty()) append(" ")
 
         when (expression) {
             is IrDeclarationReference -> appendDeclaration(expression.symbol)
