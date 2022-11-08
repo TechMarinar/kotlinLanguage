@@ -310,7 +310,8 @@ class FirClassSubstitutionScope(
         // TODO: do we have fields with implicit type?
         val newReturnType = returnType?.substitute() ?: return original
         val newDispatchReceiverType =
-            dispatchReceiverTypeForSubstitutedMembers.substitute() as ConeClassLikeType? ?: dispatchReceiverTypeForSubstitutedMembers
+            // Note: we can get ConeRawType instead of ConeClassLikeType here
+            dispatchReceiverTypeForSubstitutedMembers.substitute() as? ConeClassLikeType ?: dispatchReceiverTypeForSubstitutedMembers
 
         return FirFakeOverrideGenerator.createSubstitutionOverrideField(
             session, member, original, newDispatchReceiverType, newReturnType, newOwnerClassId
