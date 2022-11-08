@@ -309,8 +309,12 @@ class FirClassSubstitutionScope(
         val returnType = member.returnTypeRef.coneTypeSafe<ConeKotlinType>()
         // TODO: do we have fields with implicit type?
         val newReturnType = returnType?.substitute() ?: return original
+        val newDispatchReceiverType =
+            dispatchReceiverTypeForSubstitutedMembers.substitute() as ConeClassLikeType? ?: dispatchReceiverTypeForSubstitutedMembers
 
-        return FirFakeOverrideGenerator.createSubstitutionOverrideField(session, member, original, newReturnType, newOwnerClassId)
+        return FirFakeOverrideGenerator.createSubstitutionOverrideField(
+            session, member, original, newDispatchReceiverType, newReturnType, newOwnerClassId
+        )
     }
 
     fun createSubstitutionOverrideSyntheticProperty(original: FirSyntheticPropertySymbol): FirSyntheticPropertySymbol {

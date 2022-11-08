@@ -462,6 +462,7 @@ object FirFakeOverrideGenerator {
         session: FirSession,
         baseField: FirField,
         baseSymbol: FirFieldSymbol,
+        newDispatchReceiverType: ConeSimpleKotlinType?,
         newReturnType: ConeKotlinType?,
         derivedClassId: ClassId?
     ): FirFieldSymbol {
@@ -482,9 +483,12 @@ object FirFakeOverrideGenerator {
             resolvePhase = baseField.resolvePhase
             annotations += baseField.annotations
             attributes = baseField.attributes.copy()
-            dispatchReceiverType = baseField.dispatchReceiverType
+            dispatchReceiverType = newDispatchReceiverType
         }.apply {
             originalForSubstitutionOverrideAttr = baseField
+            if (isStatic) {
+                containingClassForStaticMemberAttr = (newDispatchReceiverType as? ConeClassLikeType)?.lookupTag
+            }
         }
         return symbol
     }

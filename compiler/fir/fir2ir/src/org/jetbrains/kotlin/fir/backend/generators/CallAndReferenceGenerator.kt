@@ -556,7 +556,10 @@ class CallAndReferenceGenerator(
             }
 
             val symbol = calleeReference.toSymbolForCall(
-                variableAssignment.dispatchReceiver, conversionScope, preferGetter = false
+                variableAssignment.dispatchReceiver,
+                conversionScope,
+                explicitReceiver = variableAssignment.explicitReceiver,
+                preferGetter = false,
             )
             val origin = variableAssignment.getIrAssignmentOrigin()
 

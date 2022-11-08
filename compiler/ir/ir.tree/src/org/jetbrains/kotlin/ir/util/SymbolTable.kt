@@ -712,6 +712,9 @@ open class SymbolTable(
     override fun referenceField(descriptor: PropertyDescriptor): IrFieldSymbol =
         fieldSymbolTable.referenced(descriptor) { signature -> createFieldSymbol(descriptor, signature) }
 
+    fun referenceFieldIfAny(sig: IdSignature): IrFieldSymbol? =
+        fieldSymbolTable.get(sig)
+
     override fun referenceField(sig: IdSignature, reg: Boolean): IrFieldSymbol =
         fieldSymbolTable.run {
             if (sig.isPubliclyVisible) {

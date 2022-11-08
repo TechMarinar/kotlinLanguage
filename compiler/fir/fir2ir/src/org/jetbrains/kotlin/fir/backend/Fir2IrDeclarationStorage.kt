@@ -1012,6 +1012,16 @@ class Fir2IrDeclarationStorage(
 
     fun getCachedIrField(field: FirField): IrField? = fieldCache[field]
 
+    fun getCachedIrField(
+        field: FirField,
+        dispatchReceiverLookupTag: ConeClassLikeLookupTag?,
+        signatureCalculator: () -> IdSignature?
+    ): IrField? {
+        return getCachedIrCallable(field, dispatchReceiverLookupTag, fieldCache, signatureCalculator) { signature ->
+            symbolTable.referenceFieldIfAny(signature)?.owner
+        }
+    }
+
     fun createIrFieldAndDelegatedMembers(field: FirField, owner: FirClass, irClass: IrClass): IrField? {
         // Either take a corresponding constructor property backing field,
         // or create a separate delegate field
@@ -1041,22 +1051,23 @@ class Fir2IrDeclarationStorage(
                 }
             }
         }
-        val irField = createIrField(
+        return createIrField(
             field,
+            irClass,
             typeRef = initializer?.typeRef ?: field.returnTypeRef,
             origin = IrDeclarationOrigin.DELEGATE
         )
-        irField.setAndModifyParent(irClass)
-        return irField
     }
 
-    private fun createIrField(
+    internal fun createIrField(
         field: FirField,
+        irParent: IrDeclarationParent?,
         typeRef: FirTypeRef = field.returnTypeRef,
         origin: IrDeclarationOrigin = IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB
     ): IrField = convertCatching(field) {
         val type = typeRef.toIrType()
-        val signature = signatureComposer.composeSignature(field)
+        val containingClass = (irParent as? IrClass)?.classId?.let { ConeClassLikeLookupTagImpl(it) }
+        val signature = signatureComposer.composeSignature(field, containingClass)
         return field.convertWithOffsets { startOffset, endOffset ->
             if (signature != null) {
                 symbolTable.declareField(
@@ -1084,6 +1095,7 @@ class Fir2IrDeclarationStorage(
                 if (initializer is FirConstExpression<*>) {
                     this.initializer = factory.createExpressionBody(initializer.toIrConst(type))
                 }
+                setAndModifyParent(irParent)
             }
         }
     }
@@ -1510,16 +1522,30 @@ class Fir2IrDeclarationStorage(
         else -> parentOrigin
     }
 
-    fun getIrFieldSymbol(firFieldSymbol: FirFieldSymbol): IrFieldSymbol {
+    fun getIrFieldSymbol(
+        firFieldSymbol: FirFieldSymbol,
+        dispatchReceiverLookupTag: ConeClassLikeLookupTag? = null
+    ): IrFieldSymbol {
         val fir = firFieldSymbol.fir
-        val irField = fieldCache[fir] ?: run {
-            // In case of type parameters from the parent as the field's return type, find the parent ahead to cache type parameters.
-            val irParent = findIrParent(fir)
-            createIrField(fir).apply {
-                setAndModifyParent(irParent)
-            }
+        val unmatchedReceiver = dispatchReceiverLookupTag != null && dispatchReceiverLookupTag != firFieldSymbol.containingClassLookupTag()
+        if (!fir.isStatic && !unmatchedReceiver) {
+            fieldCache[fir]?.let { return it.symbol }
+        } else {
+            generateLazyFakeOverrides(fir.name, dispatchReceiverLookupTag)
         }
-        return irField.symbol
+        // In case of type parameters from the parent as the field's return type, find the parent ahead to cache type parameters.
+        val irParent = findIrParent(fir)
+
+        getCachedIrField(fir, dispatchReceiverLookupTag.takeIf { fir.isStatic && it !is ConeClassLookupTagWithFixedSymbol }) {
+            signatureComposer.composeSignature(fir, dispatchReceiverLookupTag, forceTopLevelPrivate = false)
+        }?.let { return it.symbol }
+        val parentOrigin = (irParent as? IrDeclaration)?.origin ?: IrDeclarationOrigin.DEFINED
+        val declarationOrigin = computeDeclarationOrigin(firFieldSymbol, parentOrigin)
+        val unwrapped = fir.unwrapFakeOverrides()
+        if (unwrapped !== fir) {
+            return getIrFieldSymbol(unwrapped.symbol)
+        }
+        return createIrField(fir, irParent, origin = declarationOrigin).symbol
     }
 
     fun getIrBackingFieldSymbol(firBackingFieldSymbol: FirBackingFieldSymbol): IrSymbol {

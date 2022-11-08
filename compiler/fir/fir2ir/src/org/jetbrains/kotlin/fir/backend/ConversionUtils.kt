@@ -178,8 +178,8 @@ context(Fir2IrComponents)
 fun FirReference.toSymbolForCall(
     dispatchReceiver: FirExpression,
     conversionScope: Fir2IrConversionScope,
+    explicitReceiver: FirExpression?,
     preferGetter: Boolean = true,
-    explicitReceiver: FirExpression? = null,
     isDelegate: Boolean = false,
     isReference: Boolean = false
 ): IrSymbol? {
@@ -272,7 +272,7 @@ private fun FirCallableSymbol<*>.toSymbolForCall(
 
         is FirFunctionSymbol<*> -> declarationStorage.getIrFunctionSymbol(this, dispatchReceiverLookupTag)
         is FirPropertySymbol -> declarationStorage.getIrPropertySymbol(this, dispatchReceiverLookupTag)
-        is FirFieldSymbol -> declarationStorage.getIrFieldSymbol(this)
+        is FirFieldSymbol -> declarationStorage.getIrFieldSymbol(this, dispatchReceiverLookupTag)
         is FirBackingFieldSymbol -> declarationStorage.getIrBackingFieldSymbol(this)
         is FirDelegateFieldSymbol -> declarationStorage.getIrDelegateFieldSymbol(this)
         is FirVariableSymbol<*> -> declarationStorage.getIrValueSymbol(this)
