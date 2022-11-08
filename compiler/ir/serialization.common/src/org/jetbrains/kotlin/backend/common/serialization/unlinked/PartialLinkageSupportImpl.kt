@@ -14,13 +14,9 @@ import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.allUnbound
 
 internal class PartialLinkageSupportImpl(builtIns: IrBuiltIns, messageLogger: IrMessageLogger) : PartialLinkageSupport {
-    // Keep this handler here for the whole duration of IR linker life cycle. This is necessary to have
-    // stable reference equality (===) for the marker IR type.
-    private val markerTypeHandler = PartiallyLinkedMarkerTypeHandlerImpl(builtIns)
-
     private val stubGenerator = MissingDeclarationStubGenerator(builtIns)
     private val classifierExplorer = LinkedClassifierExplorer(classifierSymbols = LinkedClassifierSymbols(), stubGenerator)
-    private val patcher = PartiallyLinkedIrTreePatcher(builtIns, markerTypeHandler, classifierExplorer, messageLogger)
+    private val patcher = PartiallyLinkedIrTreePatcher(builtIns, classifierExplorer, messageLogger)
 
     override val partialLinkageEnabled get() = true
 
@@ -56,9 +52,9 @@ internal class PartialLinkageSupportImpl(builtIns: IrBuiltIns, messageLogger: Ir
         }
 
         // Patch the IR tree.
-        patcher.patchUsageOfUnlinkedSymbols(roots())
+        patcher.patch(roots())
 
         // Patch the stubs which were not patched yet.
-        patcher.patchUsageOfUnlinkedSymbols(stubGenerator.grabDeclarationsToPatch())
+        patcher.patch(stubGenerator.grabDeclarationsToPatch())
     }
 }
