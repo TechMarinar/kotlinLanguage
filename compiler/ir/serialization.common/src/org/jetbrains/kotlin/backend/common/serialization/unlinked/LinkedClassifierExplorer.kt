@@ -89,7 +89,7 @@ internal class LinkedClassifierExplorer(
             is CanBeRootCause -> dependencyStatus
         }
 
-        return classifierSymbols.registerPartiallyLinked(this, rootCause)
+        return classifierSymbols.registerPartiallyLinked(this, DueToOtherClassifier(this, rootCause))
     }
 
     /** Iterate the collection and find the first partially linked status. */
