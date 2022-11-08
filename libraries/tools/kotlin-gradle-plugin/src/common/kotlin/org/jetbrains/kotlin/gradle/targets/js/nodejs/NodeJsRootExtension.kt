@@ -19,6 +19,7 @@ import java.io.Serializable
 open class NodeJsRootExtension(
     private val logger: Logger,
     gradleUserHomeDir: File,
+    val rootProjectDir: File,
     rootProjectBuildDir: File
 ) : ConfigurationPhaseAware<NodeJsEnv>(), Serializable {
 

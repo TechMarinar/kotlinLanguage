@@ -383,7 +383,7 @@ internal class KotlinCompilationNpmResolver(
         val objectFactory: ObjectFactory,
     ) : Serializable {
         private val projectPackagesDir by lazy { compilationResolver.nodeJs_.projectPackagesDir }
-        private val rootDir by lazy { compilationResolver.nodeJs_.rootProject.rootDir }
+        private val rootDir by lazy { compilationResolver.nodeJs_.rootProjectDir }
 
         @Transient
         internal lateinit var compilationResolver: KotlinCompilationNpmResolver

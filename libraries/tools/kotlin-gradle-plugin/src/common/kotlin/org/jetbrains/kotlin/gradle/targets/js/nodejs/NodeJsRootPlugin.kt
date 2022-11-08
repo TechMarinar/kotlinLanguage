@@ -33,7 +33,8 @@ open class NodeJsRootPlugin : Plugin<Project> {
             NodeJsRootExtension.EXTENSION_NAME,
             NodeJsRootExtension::class.java,
             logger,
-            gradle,
+            gradle.gradleUserHomeDir,
+            projectDir,
             buildDir
         )
 
