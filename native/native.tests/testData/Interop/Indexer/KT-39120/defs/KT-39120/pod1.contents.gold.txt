@@ -1,2 +1,35 @@
+    @ExternalObjCClass open class NSCoder : NSObject {
+    @ExternalObjCClass open class NSCoderMeta : NSObjectMeta {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod14") interface NSCodingProtocol : ObjCObject {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod14") interface NSCodingProtocolMeta : ObjCObjectMeta /* = ObjCClass */
+    @ExternalObjCClass(protocolGetter = "kniprot_pod11") interface NSCopyingProtocol : ObjCObject {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod11") interface NSCopyingProtocolMeta : ObjCObjectMeta /* = ObjCClass */
+    @ExternalObjCClass open class NSData : NSObject, NSCopyingProtocol, NSMutableCopyingProtocol, NSSecureCodingProtocol {
+    @ExternalObjCClass open class NSDataMeta : NSObjectMeta, NSCopyingProtocolMeta, NSMutableCopyingProtocolMeta, NSSecureCodingProtocolMeta {
+    @ExternalObjCClass open class NSInvocation : NSObject {
+    @ExternalObjCClass open class NSInvocationMeta : NSObjectMeta {
+    @ExternalObjCClass open class NSMethodSignature : NSObject {
+    @ExternalObjCClass open class NSMethodSignatureMeta : NSObjectMeta {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod12") interface NSMutableCopyingProtocol : ObjCObject {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod12") interface NSMutableCopyingProtocolMeta : ObjCObjectMeta /* = ObjCClass */
+    @ExternalObjCClass open class NSObject : ObjCObjectBase, NSObjectProtocol {
+    @ExternalObjCClass open class NSObjectMeta : ObjCObjectBaseMeta, NSObjectProtocolMeta {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod10") interface NSObjectProtocol : ObjCObject {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod10") interface NSObjectProtocolMeta : ObjCObjectMeta /* = ObjCClass */
+    @ExternalObjCClass(protocolGetter = "kniprot_pod13") interface NSSecureCodingProtocol : NSCodingProtocol {
+    @ExternalObjCClass(protocolGetter = "kniprot_pod13") interface NSSecureCodingProtocolMeta : NSCodingProtocolMeta {
+    @ExternalObjCClass open class NSString : NSObject, NSCopyingProtocol, NSMutableCopyingProtocol, NSSecureCodingProtocol {
+    @ExternalObjCClass open class NSStringMeta : NSObjectMeta, NSCopyingProtocolMeta, NSMutableCopyingProtocolMeta, NSSecureCodingProtocolMeta {
+    @ExternalObjCClass open class Pod1 : NSObject {
+    @ExternalObjCClass open class Pod1Meta : NSObjectMeta {
+    typealias IMP = CPointer<CFunction<() -> Unit>>
+    typealias IMPVar = CPointerVarOf<IMP /* = CPointer<CFunction<() -> Unit>> */>
+    typealias NSInteger = Long
+    typealias NSIntegerVar = LongVarOf<NSInteger /* = Long */>
+    typealias NSUInteger = ULong
+    typealias NSUIntegerVar = ULongVarOf<NSUInteger /* = ULong */>
+    typealias NSZone = _NSZone
     var pod1VersionNumber: Double
     val pod1VersionString: CArrayPointer<UByteVar /* = UByteVarOf<UByte> */> /* = CPointer<UByteVar /* = UByteVarOf<UByte> */> */
+    typealias unichar = UShort
+    typealias unicharVar = UShortVarOf<unichar /* = UShort */>

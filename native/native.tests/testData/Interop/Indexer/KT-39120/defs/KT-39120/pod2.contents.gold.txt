@@ -1,2 +1,36 @@
+
+package pod2 {
+    const val SWIFT_TYPEDEFS: Int = 1
+    typealias char16_t = uint_least16_t
+    typealias char16_tVar = UShortVarOf<char16_t /* = UShort */>
+    typealias char32_t = uint_least32_t
+    typealias char32_tVar = UIntVarOf<char32_t /* = UInt */>
     var pod2VersionNumber: Double
+        @CCall(id = "knifunptr_pod20_pod2VersionNumber_getter") get
+        @CCall(id = "knifunptr_pod21_pod2VersionNumber_setter") set
     val pod2VersionString: CArrayPointer<UByteVar /* = UByteVarOf<UByte> */> /* = CPointer<UByteVar /* = UByteVarOf<UByte> */> */
+        @CCall(id = "knifunptr_pod22_pod2VersionString_getter") get
+    typealias swift_double2 = Vector128
+    typealias swift_double2Var = Vector128VarOf<swift_double2 /* = Vector128 */>
+    typealias swift_float33 = Vector128
+    typealias swift_float33Var = Vector128VarOf<swift_float33 /* = Vector128 */>
+    typealias swift_float4 = Vector128
+    typealias swift_float4Var = Vector128VarOf<swift_float4 /* = Vector128 */>
+    typealias swift_int3 = Vector128
+    typealias swift_int3Var = Vector128VarOf<swift_int3 /* = Vector128 */>
+    typealias swift_int4 = Vector128
+    typealias swift_int4Var = Vector128VarOf<swift_int4 /* = Vector128 */>
+    typealias swift_uint3 = Vector128
+    typealias swift_uint3Var = Vector128VarOf<swift_uint3 /* = Vector128 */>
+    typealias swift_uint4 = Vector128
+    typealias swift_uint4Var = Vector128VarOf<swift_uint4 /* = Vector128 */>
+    typealias uint16_t = UShort
+    typealias uint16_tVar = UShortVarOf<uint16_t /* = UShort */>
+    typealias uint32_t = UInt
+    typealias uint32_tVar = UIntVarOf<uint32_t /* = UInt */>
+    typealias uint_least16_t = uint16_t
+    typealias uint_least16_tVar = UShortVarOf<uint_least16_t /* = UShort */>
+    typealias uint_least32_t = uint32_t
+    typealias uint_least32_tVar = UIntVarOf<uint_least32_t /* = UInt */>
+}
+
