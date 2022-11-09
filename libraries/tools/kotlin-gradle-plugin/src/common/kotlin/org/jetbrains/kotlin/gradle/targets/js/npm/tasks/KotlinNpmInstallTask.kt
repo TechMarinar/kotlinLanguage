@@ -11,6 +11,7 @@ import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNpmResolutionManager
 import org.jetbrains.kotlin.gradle.targets.js.npm.KotlinNpmResolutionManager
 import org.jetbrains.kotlin.gradle.targets.js.npm.asNpmEnvironment
 import org.jetbrains.kotlin.gradle.utils.unavailableValueError
@@ -29,7 +30,7 @@ open class KotlinNpmInstallTask : DefaultTask() {
 
     @Transient
     private val nodeJs: NodeJsRootExtension? = project.rootProject.kotlinNodeJsExtension
-    private val resolutionManager = (nodeJs ?: unavailableValueError("nodeJs")).npmResolutionManager
+    private val resolutionManager = project.rootProject.kotlinNpmResolutionManager
 
     @Input
     val args: MutableList<String> = mutableListOf()

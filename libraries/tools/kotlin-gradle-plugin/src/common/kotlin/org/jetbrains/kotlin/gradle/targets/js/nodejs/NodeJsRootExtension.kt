@@ -87,5 +87,6 @@ open class NodeJsRootExtension(
 
     companion object {
         const val EXTENSION_NAME: String = "kotlinNodeJs"
+        const val EXTENSION_NAME_2: String = "kotlinNpmResolutionManager"
     }
 }

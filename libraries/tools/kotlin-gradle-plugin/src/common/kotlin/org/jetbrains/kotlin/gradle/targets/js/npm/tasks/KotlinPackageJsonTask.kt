@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNpmResolutionManager
 import org.jetbrains.kotlin.gradle.targets.js.npm.PackageJson
 import org.jetbrains.kotlin.gradle.targets.js.npm.fakePackageJsonValue
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
@@ -41,7 +42,7 @@ abstract class KotlinPackageJsonTask : DefaultTask() {
     @Transient
     private lateinit var nodeJs: NodeJsRootExtension
 
-    private val npmResolutionManager by project.provider { nodeJs.npmResolutionManager }
+    private val npmResolutionManager by project.provider { project.rootProject.kotlinNpmResolutionManager }
 
     @Transient
     private lateinit var compilation: KotlinJsCompilation

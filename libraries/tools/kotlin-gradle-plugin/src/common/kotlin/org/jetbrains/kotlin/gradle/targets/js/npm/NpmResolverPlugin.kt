@@ -10,13 +10,14 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsTaskProvidersExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNpmResolutionManager
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.implementing
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 
 class NpmResolverPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
-        nodeJs.npmResolutionManager.requireConfiguringState().addProject(project)
+        project.kotlinNpmResolutionManager.requireConfiguringState().addProject(project)
         val kotlinNodeJsTaskProvidersExtension = project.kotlinNodeJsTaskProvidersExtension
         project.whenEvaluated {
             project.tasks.implementing(RequiresNpmDependencies::class)

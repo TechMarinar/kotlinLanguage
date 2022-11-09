@@ -15,7 +15,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask
 
-class NodeJsTaskProviders(private val rootProject: Project) {
+open class NodeJsTaskProviders(private val rootProject: Project) {
     init {
         check(rootProject.rootProject == rootProject)
 

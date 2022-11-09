@@ -61,7 +61,7 @@ import java.io.File
  * User can call [requireInstalled] to get resolution info.
  */
 class KotlinNpmResolutionManager internal constructor(
-//    @Transient private val nodeJsSettings: NodeJsRootExtension?,
+    @Transient private val nodeJsSettings: NodeJsRootExtension?,
     val stateHolderProvider: Provider<KotlinNpmResolutionManagerStateHolder>,
     val rootProjectName: String,
     val rootProjectVersion: String,
@@ -71,7 +71,7 @@ class KotlinNpmResolutionManager internal constructor(
     internal val mayBeUpToDateTasksRegistry: Provider<MayBeUpToDatePackageJsonTasksRegistry>
 ) {
     val resolver = KotlinRootNpmResolver(
-//        nodeJsSettings,
+        nodeJsSettings,
         rootProjectName,
         rootProjectVersion,
         resolverStateHolder,

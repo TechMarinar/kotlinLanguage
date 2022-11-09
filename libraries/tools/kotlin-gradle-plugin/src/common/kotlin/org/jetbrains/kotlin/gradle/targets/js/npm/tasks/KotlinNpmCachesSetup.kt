@@ -10,6 +10,7 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.internal.hash.FileHasher
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNpmResolutionManager
 import javax.inject.Inject
 
 abstract class KotlinNpmCachesSetup : DefaultTask() {
@@ -19,8 +20,8 @@ abstract class KotlinNpmCachesSetup : DefaultTask() {
 
     @Transient
     private val nodeJs = project.rootProject.kotlinNodeJsExtension
-    private val gradleNodeModules = nodeJs.npmResolutionManager.resolver.gradleNodeModulesProvider
-    private val compositeNodeModules = nodeJs.npmResolutionManager.resolver.compositeNodeModulesProvider
+    private val gradleNodeModules = project.rootProject.kotlinNpmResolutionManager.resolver.gradleNodeModulesProvider
+    private val compositeNodeModules = project.rootProject.kotlinNpmResolutionManager.resolver.compositeNodeModulesProvider
 
     @TaskAction
     fun setup() {

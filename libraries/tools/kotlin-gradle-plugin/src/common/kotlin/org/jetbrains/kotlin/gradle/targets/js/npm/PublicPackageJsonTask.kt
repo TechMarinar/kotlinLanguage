@@ -12,6 +12,7 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNpmResolutionManager
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject.Companion.PACKAGE_JSON
 import org.jetbrains.kotlin.gradle.utils.property
 import java.io.File
@@ -27,7 +28,7 @@ constructor(
 
     @Transient
     private val nodeJs = npmProject.nodeJs
-    private val resolutionManager = nodeJs.npmResolutionManager
+    private val resolutionManager = project.rootProject.kotlinNpmResolutionManager
 
     private val compilationName = compilation.disambiguatedName
     private val projectPath = project.path

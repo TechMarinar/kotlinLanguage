@@ -37,8 +37,8 @@ import org.jetbrains.kotlin.gradle.utils.unavailableValueError
  * create an own copy. We use build services as a single storage for the heavy state of this class.
  */
 class KotlinRootNpmResolver internal constructor(
-//    @Transient
-//    val nodeJs: NodeJsRootExtension?,
+    @Transient
+    val nodeJs: NodeJsRootExtension?,
     val rootProjectName: String,
     val rootProjectVersion: String,
     val resolverStateHolder: Provider<KotlinRootNpmResolverStateHolder>,
@@ -192,7 +192,7 @@ class KotlinRootNpmResolver internal constructor(
         get() = projectResolvers.values.flatMap { it.compilationResolvers.map { it.compilation } }
 
     internal fun getPackageJsonHandlers(projectPath: String, compilationDisambiguatedName: String): List<PackageJson.() -> Unit> =
-        resolverStateHolder.get().parameters.packageJsonHandlers.get()["$projectPath:$compilationDisambiguatedName"] ?: emptyList()
+        resolverStateHolder.get().packageJsonHandlers["$projectPath:$compilationDisambiguatedName"] ?: emptyList()
 
     internal fun findDependentResolver(src: Project, target: Project): List<KotlinCompilationNpmResolver>? {
         // todo: proper finding using KotlinTargetComponent.findUsageContext

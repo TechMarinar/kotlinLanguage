@@ -11,7 +11,6 @@ import org.gradle.api.Task
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.targets.js.MultiplePluginDeclarationDetector
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.CompositeNodeModulesCache
 import org.jetbrains.kotlin.gradle.targets.js.npm.GradleNodeModulesCache
 import org.jetbrains.kotlin.gradle.targets.js.npm.KotlinNpmResolutionManager
@@ -41,14 +40,13 @@ open class NodeJsRootPlugin : Plugin<Project> {
         ) {
         }
 
-        val settings = project.extensions.create(
+        val nodeJs = project.extensions.create(
             NodeJsRootExtension.EXTENSION_NAME,
             NodeJsRootExtension::class.java,
             project.logger,
             project.gradle.gradleUserHomeDir,
             project.projectDir,
             project.buildDir,
-            npmResolutionManagerStateHolder
         )
 
         project.extensions.create(
@@ -90,7 +88,7 @@ open class NodeJsRootPlugin : Plugin<Project> {
         }
 
         val npmEnvironment = project.provider {
-            settings.asNpmEnvironment
+            nodeJs.asNpmEnvironment
         }
 
         val yarnResolutions = project.provider {
@@ -102,29 +100,27 @@ open class NodeJsRootPlugin : Plugin<Project> {
             KotlinRootNpmResolverStateHolder::class.java
         ) { service ->
             service.parameters.projectResolvers.set(mutableMapOf())
-            service.parameters.packageManager.set(settings.packageManager)
+            service.parameters.packageManager.set(nodeJs.packageManager)
             service.parameters.yarnEnvironment.set(yarnEnv)
             service.parameters.npmEnvironment.set(npmEnvironment)
             service.parameters.yarnResolutions.set(yarnResolutions)
-            service.parameters.taskRequirements.set(settings.taskRequirements)
-//            service.parameters.packageJsonHandlers.set(compilations.associate { compilation ->
-//                "${compilation.project.path}:${compilation.disambiguatedName}" to compilation.packageJsonHandlers
-//            }.filter { it.value.isNotEmpty() })
+            service.parameters.taskRequirements.set(nodeJs.taskRequirements)
         }
 
         val gradleNodeModulesProvider: Provider<GradleNodeModulesCache> =
             project.gradle.sharedServices.registerIfAbsent("gradle-node-modules", GradleNodeModulesCache::class.java) {
-                it.parameters.cacheDir.set(settings.nodeModulesGradleCacheDir)
+                it.parameters.cacheDir.set(nodeJs.nodeModulesGradleCacheDir)
                 it.parameters.rootProjectDir.set(project.projectDir)
             }
 
         val compositeNodeModulesProvider: Provider<CompositeNodeModulesCache> =
             project.gradle.sharedServices.registerIfAbsent("composite-node-modules", CompositeNodeModulesCache::class.java) {
-                it.parameters.cacheDir.set(settings.nodeModulesGradleCacheDir)
+                it.parameters.cacheDir.set(nodeJs.nodeModulesGradleCacheDir)
                 it.parameters.rootProjectDir.set(project.projectDir)
             }
 
-        val npmResolutionManager = KotlinNpmResolutionManager(
+        _kotlinNpmResolutionManager = KotlinNpmResolutionManager(
+            nodeJs,
             npmResolutionManagerStateHolder,
             project.name,
             project.version.toString(),
@@ -135,7 +131,7 @@ open class NodeJsRootPlugin : Plugin<Project> {
         )
 
         project.tasks.register("node" + CleanDataTask.NAME_SUFFIX, CleanDataTask::class.java) {
-            it.cleanableStoreProvider = project.provider { settings.requireConfigured().cleanableStore }
+            it.cleanableStoreProvider = project.provider { nodeJs.requireConfigured().cleanableStore }
             it.group = TASKS_GROUP_NAME
             it.description = "Clean unused local node version"
         }
@@ -155,5 +151,9 @@ open class NodeJsRootPlugin : Plugin<Project> {
 
         val Project.kotlinNodeJsTaskProvidersExtension: NodeJsTaskProviders
             get() = extensions.getByName(NodeJsTaskProviders.EXTENSION_NAME).castIsolatedKotlinPluginClassLoaderAware()
+
+        var _kotlinNpmResolutionManager: KotlinNpmResolutionManager? = null
+        val Project.kotlinNpmResolutionManager: KotlinNpmResolutionManager
+            get() = _kotlinNpmResolutionManager!!
     }
 }
