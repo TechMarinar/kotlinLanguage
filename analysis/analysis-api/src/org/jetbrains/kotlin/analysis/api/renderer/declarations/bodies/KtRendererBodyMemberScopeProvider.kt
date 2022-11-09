@@ -6,10 +6,7 @@
 package org.jetbrains.kotlin.analysis.api.renderer.declarations.bodies
 
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
-import org.jetbrains.kotlin.analysis.api.symbols.KtClassOrObjectSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtConstructorSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtDeclarationSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithMembers
 
 public interface KtRendererBodyMemberScopeProvider {
@@ -35,6 +32,8 @@ public interface KtRendererBodyMemberScopeProvider {
                             origin != KtSymbolOrigin.INTERSECTION_OVERRIDE
                 }.filter { member ->
                     member !is KtConstructorSymbol || symbol !is KtClassOrObjectSymbol || !symbol.classKind.isObject
+                }.filterNot { member ->
+                    member is KtConstructorSymbol && symbol is KtEnumEntrySymbol
                 }
                 .toList()
         }
