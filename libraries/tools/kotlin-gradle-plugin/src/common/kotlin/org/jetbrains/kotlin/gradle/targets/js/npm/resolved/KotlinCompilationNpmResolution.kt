@@ -14,7 +14,8 @@ import java.io.Serializable
  * Resolved [NpmProject]
  */
 class KotlinCompilationNpmResolution(
-    private val objectFactory: ObjectFactory,
+    @Transient
+    private val objectFactory: ObjectFactory?,
     val npmProject: NpmProject,
     val internalCompositeDependencies: Collection<GradleNodeModule>,
     val externalGradleDependencies: Collection<GradleNodeModule>,

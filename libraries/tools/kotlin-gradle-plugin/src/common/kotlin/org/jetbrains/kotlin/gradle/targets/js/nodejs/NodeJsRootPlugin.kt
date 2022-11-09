@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.PACKAGE_JSON_UMBRELLA
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmCachesSetup
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnResolution
 import org.jetbrains.kotlin.gradle.tasks.CleanDataTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.castIsolatedKotlinPluginClassLoaderAware
@@ -91,20 +92,13 @@ open class NodeJsRootPlugin : Plugin<Project> {
             nodeJs.asNpmEnvironment
         }
 
-        val yarnResolutions = project.provider {
+        val yarnResolutions: Provider<List<YarnResolution>> = project.provider {
             yarnExtension.resolutions
         }
 
-        val resolverStateHolder = project.gradle.sharedServices.registerIfAbsent(
-            KotlinRootNpmResolverStateHolder::class.qualifiedName,
-            KotlinRootNpmResolverStateHolder::class.java
-        ) { service ->
-            service.parameters.projectResolvers.set(mutableMapOf())
-            service.parameters.packageManager.set(nodeJs.packageManager)
-            service.parameters.yarnEnvironment.set(yarnEnv)
-            service.parameters.npmEnvironment.set(npmEnvironment)
-            service.parameters.yarnResolutions.set(yarnResolutions)
-            service.parameters.taskRequirements.set(nodeJs.taskRequirements)
+        val taskRequirements = project.provider {
+            println("INSIDE TASK REQUIREMENTS")
+            nodeJs.taskRequirements
         }
 
         val gradleNodeModulesProvider: Provider<GradleNodeModulesCache> =
@@ -124,10 +118,13 @@ open class NodeJsRootPlugin : Plugin<Project> {
             npmResolutionManagerStateHolder,
             project.name,
             project.version.toString(),
-            resolverStateHolder,
+            project.gradle.sharedServices,
             gradleNodeModulesProvider,
             compositeNodeModulesProvider,
-            MayBeUpToDatePackageJsonTasksRegistry.registerIfAbsent(project)
+            MayBeUpToDatePackageJsonTasksRegistry.registerIfAbsent(project),
+            yarnEnv,
+            npmEnvironment,
+            yarnResolutions
         )
 
         project.tasks.register("node" + CleanDataTask.NAME_SUFFIX, CleanDataTask::class.java) {

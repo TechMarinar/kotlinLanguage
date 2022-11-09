@@ -18,7 +18,7 @@ class NpmResolverPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
         project.kotlinNpmResolutionManager.requireConfiguringState().addProject(project)
-        val kotlinNodeJsTaskProvidersExtension = project.kotlinNodeJsTaskProvidersExtension
+        val kotlinNodeJsTaskProvidersExtension = project.rootProject.kotlinNodeJsTaskProvidersExtension
         project.whenEvaluated {
             project.tasks.implementing(RequiresNpmDependencies::class)
                 .configureEach { task ->

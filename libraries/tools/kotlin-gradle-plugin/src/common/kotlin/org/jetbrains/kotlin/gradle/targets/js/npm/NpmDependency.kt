@@ -7,18 +7,22 @@ package org.jetbrains.kotlin.gradle.targets.js.npm
 
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.FileCollectionDependency
+import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.api.file.FileCollection
+import org.gradle.api.internal.artifacts.dependencies.SelfResolvingDependencyInternal
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.TaskDependency
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject.Companion.PACKAGE_JSON
 import java.io.File
 
 data class NpmDependency(
-    val objectFactory: ObjectFactory,
+    @Transient
+    val objectFactory: ObjectFactory?,
     val scope: Scope = Scope.NORMAL,
     private val name: String,
     private val version: String,
-) : FileCollectionDependency {
+) : FileCollectionDependency,
+    SelfResolvingDependencyInternal {
 
     enum class Scope {
         NORMAL,
@@ -43,9 +47,10 @@ data class NpmDependency(
     override fun resolve(transitive: Boolean): Set<File> =
         resolve()
 
+    override fun getTargetComponentId(): ComponentIdentifier? = null
     override fun resolve(): MutableSet<File> = mutableSetOf()
 
-    override fun getFiles(): FileCollection = objectFactory.fileCollection()
+    override fun getFiles(): FileCollection = objectFactory!!.fileCollection()
 
     override fun getBuildDependencies(): TaskDependency = TaskDependency { mutableSetOf() }
 

@@ -26,14 +26,9 @@ abstract class KotlinRootNpmResolverStateHolder : BuildService<KotlinRootNpmReso
         val npmEnvironment: Property<NpmEnvironment>
         val yarnResolutions: ListProperty<YarnResolution>
         val taskRequirements: Property<TasksRequirements>
-    }
 
-    // pulled up from compilation resolver since it was failing with ClassNotFoundException on deserialization, see KT-49061
-    val packageJsonHandlers: Map<String, List<PackageJson.() -> Unit>> by lazy {
-        val compilations = parameters.projectResolvers.get().values.flatMap { it.compilationResolvers.map { it.compilation } }
-        compilations.associate { compilation ->
-            "${compilation.project.path}:${compilation.disambiguatedName}" to compilation.packageJsonHandlers
-        }.filter { it.value.isNotEmpty() }
+        // pulled up from compilation resolver since it was failing with ClassNotFoundException on deserialization, see KT-49061
+        val packageJsonHandlers: MapProperty<String, List<PackageJson.() -> Unit>>
     }
 
     var initialized = false

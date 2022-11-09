@@ -42,7 +42,7 @@ abstract class KotlinPackageJsonTask : DefaultTask() {
     @Transient
     private lateinit var nodeJs: NodeJsRootExtension
 
-    private val npmResolutionManager by project.provider { project.rootProject.kotlinNpmResolutionManager }
+    private val npmResolutionManager by lazy { project.rootProject.kotlinNpmResolutionManager }
 
     @Transient
     private lateinit var compilation: KotlinJsCompilation

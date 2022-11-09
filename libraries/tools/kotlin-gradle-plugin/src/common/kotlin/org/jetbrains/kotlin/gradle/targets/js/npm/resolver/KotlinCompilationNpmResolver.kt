@@ -70,6 +70,7 @@ internal class KotlinCompilationNpmResolver(
 
     val projectPath: String = project.path
 
+    @Transient
     val objectFactory: ObjectFactory = project.objects
 
     @Transient
@@ -380,6 +381,7 @@ internal class KotlinCompilationNpmResolver(
         var externalNpmDependencies: Collection<NpmDependencyDeclaration>,
         var fileCollectionDependencies: Collection<FileCollectionExternalGradleDependency>,
         val projectPath: String,
+        @Transient
         val objectFactory: ObjectFactory,
     ) : Serializable {
         private val projectPackagesDir by lazy { compilationResolver.nodeJs_.projectPackagesDir }

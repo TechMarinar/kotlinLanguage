@@ -10,6 +10,7 @@ import org.gradle.api.logging.Logger
 import org.gradle.api.provider.Provider
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
+import org.gradle.api.services.BuildServiceRegistry
 import org.gradle.internal.service.ServiceRegistry
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolved.KotlinProjectNpmResolution
@@ -17,6 +18,8 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.resolved.KotlinRootNpmResoluti
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.*
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.MayBeUpToDatePackageJsonTasksRegistry
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinPackageJsonTask
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnEnv
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnResolution
 import org.jetbrains.kotlin.gradle.utils.unavailableValueError
 import java.io.File
 
@@ -65,19 +68,29 @@ class KotlinNpmResolutionManager internal constructor(
     val stateHolderProvider: Provider<KotlinNpmResolutionManagerStateHolder>,
     val rootProjectName: String,
     val rootProjectVersion: String,
-    val resolverStateHolder: Provider<KotlinRootNpmResolverStateHolder>,
+    @Transient
+    val buildServiceRegistry: BuildServiceRegistry,
     internal val gradleNodeModulesProvider: Provider<GradleNodeModulesCache>,
     internal val compositeNodeModulesProvider: Provider<CompositeNodeModulesCache>,
-    internal val mayBeUpToDateTasksRegistry: Provider<MayBeUpToDatePackageJsonTasksRegistry>
+    internal val mayBeUpToDateTasksRegistry: Provider<MayBeUpToDatePackageJsonTasksRegistry>,
+    @Transient
+    val yarnEnvironment_: Provider<YarnEnv>?,
+    @Transient
+    val npmEnvironment_: Provider<NpmEnvironment>?,
+    @Transient
+    val yarnResolutions_: Provider<List<YarnResolution>>?
 ) {
     val resolver = KotlinRootNpmResolver(
         nodeJsSettings,
         rootProjectName,
         rootProjectVersion,
-        resolverStateHolder,
+        buildServiceRegistry,
         gradleNodeModulesProvider,
         compositeNodeModulesProvider,
-        mayBeUpToDateTasksRegistry
+        mayBeUpToDateTasksRegistry,
+        yarnEnvironment_,
+        npmEnvironment_,
+        yarnResolutions_
     )
 
     abstract class KotlinNpmResolutionManagerStateHolder : BuildService<BuildServiceParameters.None> {
