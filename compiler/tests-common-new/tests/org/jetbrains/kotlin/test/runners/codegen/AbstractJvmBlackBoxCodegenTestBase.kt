@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.test.directives.ForeignAnnotationsDirectives
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ENABLE_DEBUG_MODE
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JDK_KIND
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JVM_TARGET
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDiagnosticsHandler
 import org.jetbrains.kotlin.test.model.*
@@ -97,12 +96,6 @@ abstract class AbstractJvmBlackBoxCodegenTestBase<R : ResultingArtifact.Frontend
                 ForeignAnnotationsDirectives.ANNOTATIONS_PATH with JavaForeignAnnotationType.Annotations
             }
             useConfigurators(::JvmForeignAnnotationsConfigurator)
-        }
-
-        forTestsMatching("*multiplatform/*") {
-            defaultDirectives {
-                LanguageSettingsDirectives.LANGUAGE with "+MultiPlatformProjects"
-            }
         }
 
         enableMetaInfoHandler()

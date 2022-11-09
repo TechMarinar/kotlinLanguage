@@ -25,7 +25,6 @@ abstract class AbstractLightAnalysisModeTest : CodegenTestCase() {
         var TEST_LIGHT_ANALYSIS: ClassBuilderFactory = object : ClassBuilderFactories.TestClassBuilderFactory() {
             override fun getClassBuilderMode() = ClassBuilderMode.getLightAnalysisForTests()
         }
-        val MULTIPLATFORM_PATH_REGEX = "multiplatform".toRegex()
     }
 
     override fun doMultiFileTest(wholeFile: File, files: List<TestFile>) {
@@ -35,12 +34,7 @@ abstract class AbstractLightAnalysisModeTest : CodegenTestCase() {
             }
         }
 
-        val extraDirectives = mutableMapOf<String, String>()
-        if (MULTIPLATFORM_PATH_REGEX.containsMatchIn(wholeFile.path)) {
-            extraDirectives["LANGUAGE"] = "+MultiPlatformProjects"
-        }
-
-        val fullTxt = compileWithFullAnalysis(files, extraDirectives)
+        val fullTxt = compileWithFullAnalysis(files)
             .replace("final enum class", "enum class")
 
         val liteTxt = compileWithLightAnalysis(wholeFile, files)
@@ -71,8 +65,8 @@ abstract class AbstractLightAnalysisModeTest : CodegenTestCase() {
         return BytecodeListingTextCollectingVisitor.getText(classFileFactory, ListAnalysisFilter())
     }
 
-    private fun compileWithFullAnalysis(files: List<TestFile>, extraDirectives: Map<String, String> = emptyMap()): String {
-        compile(files, extraDirectives)
+    private fun compileWithFullAnalysis(files: List<TestFile>): String {
+        compile(files)
         return BytecodeListingTextCollectingVisitor.getText(classFileFactory, ListAnalysisFilter())
     }
 

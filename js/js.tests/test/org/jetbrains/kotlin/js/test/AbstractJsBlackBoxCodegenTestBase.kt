@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.test.builders.jsArtifactsHandlersStep
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.DIAGNOSTICS
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
@@ -80,12 +79,6 @@ abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendO
 
         forTestsNotMatching("compiler/testData/codegen/boxError/*") {
             enableMetaInfoHandler()
-        }
-
-        forTestsMatching("*multiplatform/*") {
-            defaultDirectives {
-                LanguageSettingsDirectives.LANGUAGE with "+MultiPlatformProjects"
-            }
         }
 
         useConfigurators(

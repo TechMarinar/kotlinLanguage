@@ -31,10 +31,7 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.resolve.CompilerEnvironment
-import org.jetbrains.kotlin.test.DebugMode
-import org.jetbrains.kotlin.test.Directives
-import org.jetbrains.kotlin.test.KotlinTestWithEnvironment
-import org.jetbrains.kotlin.test.TestFiles
+import org.jetbrains.kotlin.test.*
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.Closeable
 import java.io.File
@@ -59,12 +56,7 @@ abstract class BasicWasmBoxTest(
         val fileContent = transformer.apply(KtTestUtil.doLoadFile(file))
 
         TestFileFactoryImpl().use { testFactory ->
-            val extraDirectives = Directives()
-            if (MULTIPLATFORM_PATH_REGEX.containsMatchIn(file.path)) {
-                extraDirectives.put("LANGUAGE", "+MultiPlatformProjects")
-            }
-
-            val inputFiles: MutableList<TestFile> = TestFiles.createTestFiles(file.name, fileContent, testFactory, true, extraDirectives)
+            val inputFiles: MutableList<TestFile> = TestFiles.createTestFiles(file.name, fileContent, testFactory, true)
             val testPackage = testFactory.testPackage
 
             val languageVersionSettings = inputFiles.firstNotNullOfOrNull { it.languageVersionSettings }
@@ -307,6 +299,5 @@ abstract class BasicWasmBoxTest(
         const val TEST_DATA_DIR_PATH = "js/js.translator/testData/"
         const val TEST_MODULE = "main"
         private const val TEST_FUNCTION = "box"
-        private val MULTIPLATFORM_PATH_REGEX = "multiplatform".toRegex()
     }
 }

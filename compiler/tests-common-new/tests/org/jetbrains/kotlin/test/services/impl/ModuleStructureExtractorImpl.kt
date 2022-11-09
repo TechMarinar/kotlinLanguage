@@ -16,10 +16,12 @@ import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
 import org.jetbrains.kotlin.test.builders.LanguageVersionSettingsBuilder
 import org.jetbrains.kotlin.test.directives.AdditionalFilesDirectives
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.directives.ModuleStructureDirectives
 import org.jetbrains.kotlin.test.directives.TargetPlatformEnum
-import org.jetbrains.kotlin.test.directives.model.*
+import org.jetbrains.kotlin.test.directives.model.ComposedRegisteredDirectives
+import org.jetbrains.kotlin.test.directives.model.Directive
+import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
+import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.impl.TestModuleStructureImpl.Companion.toArtifactKind
@@ -51,8 +53,6 @@ class ModuleStructureExtractorImpl(
          * (\((.*?)\)(\((.*?)\))?)? module friendDependencies and dependsOnDependencies
          */
         private val moduleDirectiveRegex = """([^()\n]+)(\((.*?)\)(\((.*?)\)(\((.*?)\))?)?)?""".toRegex()
-
-        private val multiplatformPathRegex = "multiplatform".toRegex()
     }
 
     override fun splitTestDataByModules(
@@ -311,16 +311,7 @@ class ModuleStructureExtractorImpl(
         private fun finishModule(lineNumber: Int) {
             finishFile(lineNumber)
             val isImplicitModule = currentModuleName == null
-            val moduleDirectives = moduleDirectivesBuilder.build() + testServices.defaultDirectives + globalDirectives +
-                    if (multiplatformPathRegex.containsMatchIn(currentTestDataFile.path)) {
-                        RegisteredDirectivesImpl(
-                            emptyList(),
-                            mapOf(LanguageSettingsDirectives.LANGUAGE to listOf("+MultiPlatformProjects")),
-                            emptyMap()
-                        )
-                    } else {
-                        null
-                    }
+            val moduleDirectives = moduleDirectivesBuilder.build() + testServices.defaultDirectives + globalDirectives
             moduleDirectives.forEach { it.checkDirectiveApplicability(contextIsGlobal = isImplicitModule, contextIsModule = true) }
 
             val targetBackend = currentModuleTargetBackend ?: defaultsProvider.defaultTargetBackend
