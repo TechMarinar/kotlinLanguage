@@ -34179,7 +34179,7 @@ public class FirOldFrontendDiagnosticsTestGenerated extends AbstractFirDiagnosti
         public class WarningsForBreakingChanges {
             @Test
             public void testAllFilesPresentInWarningsForBreakingChanges() throws Exception {
-                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/warningsForBreakingChanges"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), true);
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/warningsForBreakingChanges"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), true);
             }
 
             @Nested
@@ -34188,7 +34188,7 @@ public class FirOldFrontendDiagnosticsTestGenerated extends AbstractFirDiagnosti
             public class CapturedTypes {
                 @Test
                 public void testAllFilesPresentInCapturedTypes() throws Exception {
-                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/warningsForBreakingChanges/capturedTypes"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), true);
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/warningsForBreakingChanges/capturedTypes"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), true);
                 }
 
                 @Test

@@ -7,5 +7,6 @@ package org.jetbrains.kotlin.fir.symbols.impl
 
 import org.jetbrains.kotlin.fir.declarations.FirScript
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.name.FqName
 
-class FirScriptSymbol : FirBasedSymbol<FirScript>()
+class FirScriptSymbol(val fqName: FqName) : FirBasedSymbol<FirScript>()

@@ -498,6 +498,17 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
         }
     }
 
+    override fun transformScript(script: FirScript, data: ResolutionMode): FirScript {
+        dataFlowAnalyzer.enterScript(script)
+        val result = context.withScopesForScript(script, components) {
+            transformDeclarationContent(script, data) as FirScript
+        }
+
+        dataFlowAnalyzer.exitScript(script)
+
+        return result
+    }
+
     override fun transformTypeAlias(typeAlias: FirTypeAlias, data: ResolutionMode): FirTypeAlias {
         if (typeAlias.isLocal && typeAlias !in context.targetedLocalClasses) {
             return typeAlias.runAllPhasesForLocalClass(

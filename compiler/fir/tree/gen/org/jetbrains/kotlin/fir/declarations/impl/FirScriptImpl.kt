@@ -9,6 +9,7 @@ package org.jetbrains.kotlin.fir.declarations.impl
 
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirModuleData
+import org.jetbrains.kotlin.fir.declarations.FirContextReceiver
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationAttributes
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
@@ -35,6 +36,7 @@ internal class FirScriptImpl(
     override val name: Name,
     override val statements: MutableList<FirStatement>,
     override val symbol: FirScriptSymbol,
+    override val contextReceivers: MutableList<FirContextReceiver>,
 ) : FirScript() {
     init {
         symbol.bind(this)
@@ -43,11 +45,13 @@ internal class FirScriptImpl(
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         annotations.forEach { it.accept(visitor, data) }
         statements.forEach { it.accept(visitor, data) }
+        contextReceivers.forEach { it.accept(visitor, data) }
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirScriptImpl {
         transformAnnotations(transformer, data)
         transformStatements(transformer, data)
+        contextReceivers.transformInplace(transformer, data)
         return this
     }
 

@@ -364,6 +364,16 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         graphBuilder.exitAnonymousObjectExpression(anonymousObjectExpression).mergeIncomingFlow()
     }
 
+    // ----------------------------------- Scripts ------------------------------------------
+
+    fun enterScript(script: FirScript) {
+        graphBuilder.enterScript(script)
+    }
+
+    fun exitScript(script: FirScript) {
+        graphBuilder.exitScript(script)
+    }
+
     // ----------------------------------- Value parameters (and it's defaults) -----------------------------------
 
     fun enterValueParameter(valueParameter: FirValueParameter) {

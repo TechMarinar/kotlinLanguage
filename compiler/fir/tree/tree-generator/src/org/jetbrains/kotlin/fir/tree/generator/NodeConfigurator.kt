@@ -437,6 +437,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +name
             +fieldList(statement).withTransform()
             +symbol("FirScriptSymbol")
+            +fieldList(contextReceiver)
         }
 
         packageDirective.configure {

@@ -978,8 +978,10 @@ open class RawFirBuilder(
                 }
                 for (declaration in file.declarations) {
                     declarations += when (declaration) {
-                        // TODO: scripts aren't supported yet
-                        is KtScript -> convertScript(declaration, this)
+                        is KtScript -> {
+                            require(file.declarations.size == 1) { "Expect the script to be the only declaration in the file $name" }
+                            convertScript(declaration, this)
+                        }
                         is KtDestructuringDeclaration -> buildErrorTopLevelDestructuringDeclaration(declaration.toFirSourceElement())
                         else -> declaration.convert()
                     }
@@ -989,9 +991,11 @@ open class RawFirBuilder(
 
         private fun convertScript(script: KtScript, containingFile: FirFileBuilder,): FirScript {
             return buildScript {
+                source = script.toFirSourceElement()
                 moduleData = baseModuleData
                 origin = FirDeclarationOrigin.Source
                 name = Name.special("<script-${containingFile.name}>")
+                symbol = FirScriptSymbol(context.packageFqName.child(name))
                 for (declaration in script.declarations) {
                     when (declaration) {
                         is KtScriptInitializer -> {
