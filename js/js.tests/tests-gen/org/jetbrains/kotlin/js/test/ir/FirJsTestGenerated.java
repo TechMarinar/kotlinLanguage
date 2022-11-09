@@ -861,6 +861,12 @@ public class FirJsTestGenerated extends AbstractFirJsTest {
         }
 
         @Test
+        @TestMetadata("dynamicSuspendReturn.kt")
+        public void testDynamicSuspendReturn() throws Exception {
+            runTest("js/js.translator/testData/box/coroutines/dynamicSuspendReturn.kt");
+        }
+
+        @Test
         @TestMetadata("kt54382.kt")
         public void testKt54382() throws Exception {
             runTest("js/js.translator/testData/box/coroutines/kt54382.kt");
