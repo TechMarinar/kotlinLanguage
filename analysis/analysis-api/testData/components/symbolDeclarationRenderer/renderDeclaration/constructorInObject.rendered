@@ -1,9 +1,7 @@
 object A
 
 enum class B {
-  X {
-    private constructor()
-  }
+  X
 }
 
 class C {
