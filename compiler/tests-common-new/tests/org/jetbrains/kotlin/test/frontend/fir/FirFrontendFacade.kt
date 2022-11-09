@@ -96,8 +96,6 @@ class FirFrontendFacade(
                 ) { packagePartProviderFactory.invoke(it) }
                 val projectFileSearchScope = PsiBasedProjectFileSearchScope(ProjectScope.getLibrariesScope(project))
                 val packagePartProvider = projectEnvironment.getPackagePartProvider(projectFileSearchScope)
-                val reuseDependentLibraryProviders = module.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) &&
-                            module.dependsOnDependencies.isNotEmpty()
 
                 if (module.targetPlatform.isCommon()) {
                     FirCommonSessionFactory.createLibrarySession(
@@ -107,9 +105,7 @@ class FirFrontendFacade(
                         projectEnvironment,
                         projectFileSearchScope,
                         packagePartProvider,
-                        languageVersionSettings,
-                        reuseDependentLibraryProviders = reuseDependentLibraryProviders,
-                        ignoreExtraJvmClassFileBasedProvider = false
+                        languageVersionSettings
                     )
                 } else {
                     FirJvmSessionFactory.createLibrarySession(
@@ -119,9 +115,7 @@ class FirFrontendFacade(
                         projectEnvironment,
                         projectFileSearchScope,
                         packagePartProvider,
-                        languageVersionSettings,
-                        reuseDependentLibraryProviders = reuseDependentLibraryProviders,
-                        ignoreExtraJvmClassFileBasedProvider = false
+                        languageVersionSettings
                     )
                 }
             }

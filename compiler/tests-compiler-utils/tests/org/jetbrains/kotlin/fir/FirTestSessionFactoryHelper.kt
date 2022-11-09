@@ -49,7 +49,7 @@ object FirTestSessionFactoryHelper {
         dependenciesConfigurator = {
             friendDependencies(friendsPaths)
         }
-    )
+    ).moduleBasedSession
 
     @ObsoleteTestInfrastructure
     fun createSessionForTests(
@@ -81,6 +81,6 @@ object FirTestSessionFactoryHelper {
             dependenciesConfigurator = {
                 friendDependencies(friendsPaths)
             }
-        )
+        ).moduleBasedSession
     }
 }

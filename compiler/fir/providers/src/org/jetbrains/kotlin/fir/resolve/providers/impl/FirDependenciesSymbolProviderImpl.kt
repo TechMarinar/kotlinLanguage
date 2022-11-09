@@ -30,7 +30,7 @@ open class FirDependenciesSymbolProviderImpl(session: FirSession) : FirDependenc
     private val packageCache = session.firCachesFactory.createCache(::computePackage)
 
 
-    open val dependencyProviders by lazy {
+    protected open val dependencyProviders by lazy {
         val moduleData =
             session.nullableModuleData ?: error("FirDependenciesSymbolProvider should not be created if there are no dependencies")
         val result = mutableListOf<FirSymbolProvider>()

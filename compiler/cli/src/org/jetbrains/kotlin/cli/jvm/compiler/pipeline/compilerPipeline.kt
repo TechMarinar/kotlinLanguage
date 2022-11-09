@@ -418,7 +418,7 @@ fun createSession(
                 registerExtendedCommonCheckers()
             }
         }
-    )
+    ).moduleBasedSession
 }
 
 private fun createContextForIncrementalCompilation(

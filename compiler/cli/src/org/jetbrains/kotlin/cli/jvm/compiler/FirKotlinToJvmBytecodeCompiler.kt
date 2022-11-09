@@ -43,6 +43,7 @@ import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.pipeline.*
 import org.jetbrains.kotlin.fir.session.FirSessionFactoryHelper
 import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
+import org.jetbrains.kotlin.fir.session.SessionResult
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.fir.types.arrayElementType
@@ -242,8 +243,6 @@ object FirKotlinToJvmBytecodeCompiler {
 
         val sessionProvider = FirProjectSessionProvider()
 
-        val isMpp = languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) && commonKtFiles.isNotEmpty()
-
         fun createSession(
             name: String,
             platform: TargetPlatform,
@@ -251,7 +250,8 @@ object FirKotlinToJvmBytecodeCompiler {
             sourceScope: AbstractProjectFileSearchScope,
             dependenciesConfigurator: DependencyListForCliModule.Builder.() -> Unit,
             isCommonSession: Boolean,
-        ): FirSession {
+            librarySession: FirSession? = null
+        ): SessionResult {
             return FirSessionFactoryHelper.createCommonOrJvmSessionWithDependencies(
                 Name.identifier(name),
                 platform,
@@ -278,11 +278,11 @@ object FirKotlinToJvmBytecodeCompiler {
                     }
                 },
                 isCommonSession = isCommonSession,
-                isMpp = isMpp
+                existingLibrarySession = librarySession
             )
         }
 
-        val commonSession = runIf(isMpp) {
+        val commonSessionResult = runIf(languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) && commonKtFiles.isNotEmpty()) {
             val commonSourcesScope = projectEnvironment.getSearchScopeByPsiFiles(commonKtFiles)
             sourceScope -= commonSourcesScope
             ktFiles = ktFiles.filterNot { it.isCommonSource == true }
@@ -302,12 +302,13 @@ object FirKotlinToJvmBytecodeCompiler {
             JvmPlatformAnalyzerServices,
             sourceScope,
             dependenciesConfigurator = {
-                if (commonSession != null) {
-                    sourceDependsOnDependencies(listOf(commonSession.moduleData))
+                if (commonSessionResult != null) {
+                    sourceDependsOnDependencies(listOf(commonSessionResult.moduleBasedSession.moduleData))
                 }
                 friendDependencies(module.getFriendPaths())
             },
-            isCommonSession = false
+            isCommonSession = false,
+            librarySession = commonSessionResult?.librarySession
         )
 
         fun buildResolveAndCheckFir(session: FirSession, ktFiles: List<KtFile>): ModuleCompilerAnalyzedOutput {
@@ -317,8 +318,8 @@ object FirKotlinToJvmBytecodeCompiler {
             return ModuleCompilerAnalyzedOutput(session, scopeSession, fir)
         }
 
-        val commonOutput = commonSession?.let { buildResolveAndCheckFir(it, commonKtFiles) }
-        val platformOutput = buildResolveAndCheckFir(session, ktFiles)
+        val commonOutput = commonSessionResult?.let { buildResolveAndCheckFir(it.moduleBasedSession, commonKtFiles) }
+        val platformOutput = buildResolveAndCheckFir(session.moduleBasedSession, ktFiles)
 
         return if (syntaxErrors || diagnosticsReporter.hasErrors) null else FirResult(platformOutput, commonOutput)
     }

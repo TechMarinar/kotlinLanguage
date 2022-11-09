@@ -106,7 +106,7 @@ abstract class AbstractFirBaseDiagnosticsTest : BaseDiagnosticsTest() {
                 sessionConfigurator = {
                     configureSession()
                 }
-            )
+            ).moduleBasedSession
         }
 
         val firFilesPerSession = mutableMapOf<FirSession, List<FirFile>>()

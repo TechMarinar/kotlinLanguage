@@ -106,8 +106,7 @@ import java.util.zip.ZipFile
 class KotlinCoreEnvironment private constructor(
     val projectEnvironment: ProjectEnvironment,
     val configuration: CompilerConfiguration,
-    configFiles: EnvironmentConfigFiles,
-    private val considerOnlyLocalRoots: Boolean = false
+    configFiles: EnvironmentConfigFiles
 ) {
 
     class ProjectEnvironment(
@@ -296,7 +295,7 @@ class KotlinCoreEnvironment private constructor(
 
     fun createPackagePartProvider(scope: GlobalSearchScope): JvmPackagePartProvider {
         return JvmPackagePartProvider(configuration.languageVersionSettings, scope).apply {
-            addRoots(initialRoots, configuration.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY), considerOnlyLocalRoots)
+            addRoots(initialRoots, configuration.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY))
             packagePartProviders += this
             (ModuleAnnotationsResolver.getInstance(project) as CliModuleAnnotationsResolver).addPackagePartProvider(this)
         }
@@ -467,10 +466,9 @@ class KotlinCoreEnvironment private constructor(
         @TestOnly
         @JvmStatic
         fun createForTests(
-            projectEnvironment: ProjectEnvironment, initialConfiguration: CompilerConfiguration, extensionConfigs: EnvironmentConfigFiles,
-            considerOnlyLocalRoots: Boolean = false
+            projectEnvironment: ProjectEnvironment, initialConfiguration: CompilerConfiguration, extensionConfigs: EnvironmentConfigFiles
         ): KotlinCoreEnvironment {
-            return KotlinCoreEnvironment(projectEnvironment, initialConfiguration, extensionConfigs, considerOnlyLocalRoots)
+            return KotlinCoreEnvironment(projectEnvironment, initialConfiguration, extensionConfigs)
         }
 
         @TestOnly

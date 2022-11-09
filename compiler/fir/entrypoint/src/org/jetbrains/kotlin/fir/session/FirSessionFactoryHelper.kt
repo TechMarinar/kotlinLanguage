@@ -20,8 +20,10 @@ import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
 import org.jetbrains.kotlin.resolve.jvm.platform.JvmPlatformAnalyzerServices
 
+data class SessionResult(val librarySession: FirSession, val moduleBasedSession: FirSession)
+
 object FirSessionFactoryHelper {
-    inline fun createCommonOrJvmSessionWithDependencies(
+    fun createCommonOrJvmSessionWithDependencies(
         moduleName: Name,
         platform: TargetPlatform,
         analyzerServices: PlatformDependentAnalyzerServices,
@@ -36,37 +38,41 @@ object FirSessionFactoryHelper {
         extensionRegistrars: List<FirExtensionRegistrar>,
         needRegisterJavaElementFinder: Boolean,
         dependenciesConfigurator: DependencyListForCliModule.Builder.() -> Unit = {},
-        noinline sessionConfigurator: FirSessionConfigurator.() -> Unit = {},
+        sessionConfigurator: FirSessionConfigurator.() -> Unit = {},
         isCommonSession: Boolean = false,
-        isMpp: Boolean = false
-    ): FirSession {
+        existingLibrarySession: FirSession? = null
+    ): SessionResult {
         val dependencyList = DependencyListForCliModule.build(moduleName, platform, analyzerServices, dependenciesConfigurator)
         val sessionProvider = externalSessionProvider ?: FirProjectSessionProvider()
         val packagePartProvider = projectEnvironment.getPackagePartProvider(librariesScope)
-        if (isCommonSession) {
-            FirCommonSessionFactory.createLibrarySession(
-                moduleName,
-                sessionProvider,
-                dependencyList,
-                projectEnvironment,
-                librariesScope,
-                packagePartProvider,
-                languageVersionSettings,
-                reuseDependentLibraryProviders = false,
-                ignoreExtraJvmClassFileBasedProvider = false
-            )
+        val librarySession = if (isCommonSession) {
+            if (existingLibrarySession == null) {
+                FirCommonSessionFactory.createLibrarySession(
+                    moduleName,
+                    sessionProvider,
+                    dependencyList,
+                    projectEnvironment,
+                    librariesScope,
+                    packagePartProvider,
+                    languageVersionSettings
+                )
+            } else {
+                FirCommonSessionFactory.bindLibrarySession(existingLibrarySession, sessionProvider, dependencyList.moduleDataProvider)
+            }
         } else {
-            FirJvmSessionFactory.createLibrarySession(
-                moduleName,
-                sessionProvider,
-                dependencyList,
-                projectEnvironment,
-                librariesScope,
-                packagePartProvider,
-                languageVersionSettings,
-                reuseDependentLibraryProviders = isMpp,
-                ignoreExtraJvmClassFileBasedProvider = isMpp
-            )
+            if (existingLibrarySession == null) {
+                FirJvmSessionFactory.createLibrarySession(
+                    moduleName,
+                    sessionProvider,
+                    dependencyList,
+                    projectEnvironment,
+                    librariesScope,
+                    packagePartProvider,
+                    languageVersionSettings
+                )
+            } else {
+                FirJvmSessionFactory.bindLibrarySession(existingLibrarySession, sessionProvider, dependencyList.moduleDataProvider)
+            }
         }
 
         val mainModuleData = FirModuleDataImpl(
@@ -77,33 +83,36 @@ object FirSessionFactoryHelper {
             dependencyList.platform,
             dependencyList.analyzerServices
         )
-        return if (isCommonSession) {
-            FirCommonSessionFactory.createModuleBasedSession(
-                mainModuleData,
-                sessionProvider,
-                projectEnvironment,
-                incrementalCompilationContext,
-                extensionRegistrars,
-                languageVersionSettings,
-                lookupTracker,
-                enumWhenTracker,
-                sessionConfigurator
-            )
-        } else {
-            FirJvmSessionFactory.createModuleBasedSession(
-                mainModuleData,
-                sessionProvider,
-                javaSourcesScope,
-                projectEnvironment,
-                incrementalCompilationContext,
-                extensionRegistrars,
-                languageVersionSettings,
-                lookupTracker,
-                enumWhenTracker,
-                needRegisterJavaElementFinder,
-                sessionConfigurator,
-            )
-        }
+        return SessionResult(
+            librarySession,
+            if (isCommonSession) {
+                FirCommonSessionFactory.createModuleBasedSession(
+                    mainModuleData,
+                    sessionProvider,
+                    projectEnvironment,
+                    incrementalCompilationContext,
+                    extensionRegistrars,
+                    languageVersionSettings,
+                    lookupTracker,
+                    enumWhenTracker,
+                    sessionConfigurator
+                )
+            } else {
+                FirJvmSessionFactory.createModuleBasedSession(
+                    mainModuleData,
+                    sessionProvider,
+                    javaSourcesScope,
+                    projectEnvironment,
+                    incrementalCompilationContext,
+                    extensionRegistrars,
+                    languageVersionSettings,
+                    lookupTracker,
+                    enumWhenTracker,
+                    needRegisterJavaElementFinder,
+                    sessionConfigurator,
+                )
+            }
+        )
     }
 
     @OptIn(SessionConfiguration::class, PrivateSessionConstructor::class)

@@ -94,14 +94,10 @@ open class CompilerConfigurationProviderImpl(
         )
         val configuration = createCompilerConfiguration(module, configurators)
         val projectEnv = KotlinCoreEnvironment.ProjectEnvironment(testRootDisposable, applicationEnvironment, configuration)
-        val considerOnlyLocalRoots = module.frontendKind == FrontendKinds.FIR &&
-                    module.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) &&
-                    module.dependsOnDependencies.isNotEmpty()
         return KotlinCoreEnvironment.createForTests(
             projectEnv,
             configuration,
-            configFiles,
-            considerOnlyLocalRoots
+            configFiles
         ).also { registerCompilerExtensions(projectEnv.project, module, configuration) }
     }
 

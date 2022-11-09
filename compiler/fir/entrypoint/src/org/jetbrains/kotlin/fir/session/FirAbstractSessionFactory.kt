@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirDependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirCompositeSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirDependenciesSymbolProviderImpl
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirLibrarySessionProvider
@@ -38,10 +37,7 @@ abstract class FirAbstractSessionFactory {
         createProviders: (FirSession, FirModuleData, FirKotlinScopeProvider) -> List<FirSymbolProvider>
     ): FirSession {
         return FirCliSession(sessionProvider, FirSession.Kind.Library).apply session@{
-            moduleDataProvider.allModuleData.forEach {
-                sessionProvider.registerSession(it, this)
-                it.bindSession(this)
-            }
+            bindLibrarySession(this, sessionProvider, moduleDataProvider)
 
             registerCliCompilerOnlyComponents()
             registerCommonComponents(languageVersionSettings)
@@ -55,7 +51,7 @@ abstract class FirAbstractSessionFactory {
                 moduleDataProvider.platform,
                 moduleDataProvider.analyzerServices,
             )
-            builtinsModuleData.bindSession(this@session)
+            builtinsModuleData.bindSession(this)
 
             val providers = createProviders(this, builtinsModuleData, kotlinScopeProvider)
 
@@ -63,6 +59,18 @@ abstract class FirAbstractSessionFactory {
             register(FirSymbolProvider::class, symbolProvider)
             register(FirProvider::class, FirLibrarySessionProvider(symbolProvider))
         }
+    }
+
+    fun bindLibrarySession(
+        librarySession: FirSession,
+        sessionProvider: FirProjectSessionProvider,
+        moduleDataProvider: ModuleDataProvider
+    ): FirSession {
+        moduleDataProvider.allModuleData.forEach {
+            sessionProvider.registerSession(it, librarySession)
+            it.bindSession(librarySession)
+        }
+        return librarySession
     }
 
     protected fun createModuleBasedSession(
@@ -119,12 +127,5 @@ abstract class FirAbstractSessionFactory {
             generatedSymbolsProvider?.let { register(FirSwitchableExtensionDeclarationsSymbolProvider::class, it) }
             register(FirDependenciesSymbolProvider::class, dependenciesSymbolProvider)
         }
-    }
-
-    protected fun getDependentLibraryProviders(dependencyList: DependencyListForCliModule): List<FirSymbolProvider> {
-        return dependencyList.dependsOnDependencies.lastOrNull()?.session
-            .let { it?.dependenciesSymbolProvider as? FirDependenciesSymbolProviderImpl }
-            ?.dependencyProviders?.filter { it.session.kind == FirSession.Kind.Library }
-            ?: emptyList()
     }
 }
