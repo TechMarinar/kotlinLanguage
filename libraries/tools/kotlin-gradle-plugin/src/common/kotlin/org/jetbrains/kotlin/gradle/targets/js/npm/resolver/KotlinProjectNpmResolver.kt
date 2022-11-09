@@ -54,27 +54,6 @@ internal class KotlinProjectNpmResolver(
 
     init {
         addContainerListeners()
-
-        project.whenEvaluated {
-            val nodeJs = resolver.nodeJs ?: unavailableValueError("resolver.nodeJs")
-            project.tasks.implementing(RequiresNpmDependencies::class)
-                .configureEach { task ->
-                    if (task.enabled) {
-                        task as RequiresNpmDependencies
-                        // KotlinJsTest delegates npm dependencies to testFramework,
-                        // which can be defined after this configure action
-                        val packageJsonTaskHolder = get(task.compilation).packageJsonTaskHolder
-                        if (task !is KotlinJsTest) {
-                            nodeJs.taskRequirements.addTaskRequirements(task)
-                        }
-                        task.dependsOn(packageJsonTaskHolder)
-                        task.dependsOn(
-                            nodeJs.npmInstallTaskProvider,
-                            nodeJs.storeYarnLockTaskProvider,
-                        )
-                    }
-                }
-        }
     }
 
     private fun addContainerListeners() {

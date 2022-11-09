@@ -9,8 +9,15 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.plugins.BasePlugin
+import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.targets.js.MultiplePluginDeclarationDetector
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
+import org.jetbrains.kotlin.gradle.targets.js.npm.CompositeNodeModulesCache
+import org.jetbrains.kotlin.gradle.targets.js.npm.GradleNodeModulesCache
+import org.jetbrains.kotlin.gradle.targets.js.npm.KotlinNpmResolutionManager
+import org.jetbrains.kotlin.gradle.targets.js.npm.asNpmEnvironment
+import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinRootNpmResolverStateHolder
+import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.MayBeUpToDatePackageJsonTasksRegistry
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.PACKAGE_JSON_UMBRELLA_TASK_NAME
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmCachesSetup
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
@@ -20,7 +27,7 @@ import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.castIsolatedKotlinPluginClassLoaderAware
 
 open class NodeJsRootPlugin : Plugin<Project> {
-    override fun apply(project: Project): Unit = project.run {
+    override fun apply(project: Project) {
         MultiplePluginDeclarationDetector.detect(project)
 
         project.plugins.apply(BasePlugin::class.java)
@@ -29,37 +36,43 @@ open class NodeJsRootPlugin : Plugin<Project> {
             "NodeJsRootPlugin can be applied only to root project"
         }
 
-        val settings = this.extensions.create(
+        val npmResolutionManagerStateHolder = project.gradle.sharedServices.registerIfAbsent(
+            "npm-resolution-manager-state-holder", KotlinNpmResolutionManager.KotlinNpmResolutionManagerStateHolder::class.java
+        ) {
+        }
+
+        val settings = project.extensions.create(
             NodeJsRootExtension.EXTENSION_NAME,
             NodeJsRootExtension::class.java,
-            logger,
-            gradle.gradleUserHomeDir,
-            projectDir,
-            buildDir
+            project.logger,
+            project.gradle.gradleUserHomeDir,
+            project.projectDir,
+            project.buildDir,
+            npmResolutionManagerStateHolder
         )
 
-        this.extensions.create(
+        project.extensions.create(
             NodeJsTaskProviders.EXTENSION_NAME,
             NodeJsTaskProviders::class.java,
-            this
+            project
         )
 
-        val setupTask = registerTask<NodeJsSetupTask>(NodeJsSetupTask.NAME) {
+        val setupTask = project.registerTask<NodeJsSetupTask>(NodeJsSetupTask.NAME) {
             it.group = TASKS_GROUP_NAME
             it.description = "Download and install a local node/npm version"
-            it.configuration = provider {
-                this.project.configurations.detachedConfiguration(this.project.dependencies.create(it.ivyDependency))
+            it.configuration = project.provider {
+                project.configurations.detachedConfiguration(project.dependencies.create(it.ivyDependency))
                     .also { conf -> conf.isTransitive = false }
             }
         }
 
         val rootClean = project.rootProject.tasks.named(BasePlugin.CLEAN_TASK_NAME)
 
-        val setupFileHasherTask = registerTask<KotlinNpmCachesSetup>(KotlinNpmCachesSetup.NAME) {
+        val setupFileHasherTask = project.registerTask<KotlinNpmCachesSetup>(KotlinNpmCachesSetup.NAME) {
             it.description = "Setup file hasher for caches"
         }
 
-        registerTask<KotlinNpmInstallTask>(KotlinNpmInstallTask.NAME) {
+        project.registerTask<KotlinNpmInstallTask>(KotlinNpmInstallTask.NAME) {
             it.dependsOn(setupTask)
             it.dependsOn(setupFileHasherTask)
             it.group = TASKS_GROUP_NAME
@@ -68,12 +81,61 @@ open class NodeJsRootPlugin : Plugin<Project> {
             it.mustRunAfter(rootClean)
         }
 
-        registerTask<Task>(PACKAGE_JSON_UMBRELLA_TASK_NAME)
+        project.registerTask<Task>(PACKAGE_JSON_UMBRELLA_TASK_NAME)
 
-        YarnPlugin.apply(project)
+        val yarnExtension = YarnPlugin.apply(project)
 
-        tasks.register("node" + CleanDataTask.NAME_SUFFIX, CleanDataTask::class.java) {
-            it.cleanableStoreProvider = provider { settings.requireConfigured().cleanableStore }
+        val yarnEnv = project.provider {
+            yarnExtension.requireConfigured()
+        }
+
+        val npmEnvironment = project.provider {
+            settings.asNpmEnvironment
+        }
+
+        val yarnResolutions = project.provider {
+            yarnExtension.resolutions
+        }
+
+        val resolverStateHolder = project.gradle.sharedServices.registerIfAbsent(
+            KotlinRootNpmResolverStateHolder::class.qualifiedName,
+            KotlinRootNpmResolverStateHolder::class.java
+        ) { service ->
+            service.parameters.projectResolvers.set(mutableMapOf())
+            service.parameters.packageManager.set(settings.packageManager)
+            service.parameters.yarnEnvironment.set(yarnEnv)
+            service.parameters.npmEnvironment.set(npmEnvironment)
+            service.parameters.yarnResolutions.set(yarnResolutions)
+            service.parameters.taskRequirements.set(settings.taskRequirements)
+//            service.parameters.packageJsonHandlers.set(compilations.associate { compilation ->
+//                "${compilation.project.path}:${compilation.disambiguatedName}" to compilation.packageJsonHandlers
+//            }.filter { it.value.isNotEmpty() })
+        }
+
+        val gradleNodeModulesProvider: Provider<GradleNodeModulesCache> =
+            project.gradle.sharedServices.registerIfAbsent("gradle-node-modules", GradleNodeModulesCache::class.java) {
+                it.parameters.cacheDir.set(settings.nodeModulesGradleCacheDir)
+                it.parameters.rootProjectDir.set(project.projectDir)
+            }
+
+        val compositeNodeModulesProvider: Provider<CompositeNodeModulesCache> =
+            project.gradle.sharedServices.registerIfAbsent("composite-node-modules", CompositeNodeModulesCache::class.java) {
+                it.parameters.cacheDir.set(settings.nodeModulesGradleCacheDir)
+                it.parameters.rootProjectDir.set(project.projectDir)
+            }
+
+        val npmResolutionManager = KotlinNpmResolutionManager(
+            npmResolutionManagerStateHolder,
+            project.name,
+            project.version.toString(),
+            resolverStateHolder,
+            gradleNodeModulesProvider,
+            compositeNodeModulesProvider,
+            MayBeUpToDatePackageJsonTasksRegistry.registerIfAbsent(project)
+        )
+
+        project.tasks.register("node" + CleanDataTask.NAME_SUFFIX, CleanDataTask::class.java) {
+            it.cleanableStoreProvider = project.provider { settings.requireConfigured().cleanableStore }
             it.group = TASKS_GROUP_NAME
             it.description = "Clean unused local node version"
         }

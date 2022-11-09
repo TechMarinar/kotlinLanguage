@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.npm
 
+import org.gradle.api.file.ArchiveOperations
 import org.gradle.api.file.FileSystemOperations
 import org.jetbrains.kotlin.gradle.utils.ArchiveOperationsCompat
 import org.jetbrains.kotlin.gradle.utils.FileSystemOperationsCompat
@@ -16,17 +17,14 @@ import javax.inject.Inject
  */
 internal abstract class GradleNodeModulesCache : AbstractNodeModulesCache() {
 
-    // TODO: replace by injected service org.gradle.api.file.FileSystemOperations once min support Gradle is 6.2
-    // https://github.com/gradle/gradle/commit/d02b9d84c08dba64775fb9581e3280f88d319a21
-    @Transient
-    lateinit var fs: FileSystemOperationsCompat
+    @get:Inject
+    abstract val fs: FileSystemOperations
 
     override val type: String
         get() = "gradle"
 
-    // TODO: replace by injected service org.gradle.api.file.ArchiveOperations once min supported Gradle is 6.6
-    @Transient
-    lateinit var archiveOperations: ArchiveOperationsCompat
+    @get:Inject
+    abstract val archiveOperations: ArchiveOperations
 
     override fun buildImportedPackage(
         name: String,

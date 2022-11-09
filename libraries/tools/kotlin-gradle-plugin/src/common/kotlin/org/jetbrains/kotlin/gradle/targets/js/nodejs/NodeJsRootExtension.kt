@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.nodejs
 
+import org.gradle.api.invocation.Gradle
 import org.gradle.api.logging.Logger
 import org.jetbrains.kotlin.gradle.internal.ConfigurationPhaseAware
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
@@ -20,7 +21,7 @@ open class NodeJsRootExtension(
     private val logger: Logger,
     gradleUserHomeDir: File,
     val rootProjectDir: File,
-    rootProjectBuildDir: File
+    rootProjectBuildDir: File,
 ) : ConfigurationPhaseAware<NodeJsEnv>(), Serializable {
 
     private val gradleHome = gradleUserHomeDir.also {
@@ -82,7 +83,7 @@ open class NodeJsRootExtension(
 
     val versions = NpmVersions()
 
-    val npmResolutionManager = KotlinNpmResolutionManager(this)
+//    val npmResolutionManager = KotlinNpmResolutionManager(this, npmResolutionManagerStateHolder)
 
     companion object {
         const val EXTENSION_NAME: String = "kotlinNodeJs"

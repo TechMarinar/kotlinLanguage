@@ -6,17 +6,16 @@
 package org.jetbrains.kotlin.gradle.targets.js.npm
 
 import org.gradle.api.Incubating
-import org.gradle.api.Task
 import org.gradle.api.logging.Logger
+import org.gradle.api.provider.Provider
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
 import org.gradle.internal.service.ServiceRegistry
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolved.KotlinProjectNpmResolution
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolved.KotlinRootNpmResolution
-import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinCompilationNpmResolver
-import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinProjectNpmResolver
-import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinRootNpmResolver
+import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.*
+import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.MayBeUpToDatePackageJsonTasksRegistry
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinPackageJsonTask
 import org.jetbrains.kotlin.gradle.utils.unavailableValueError
 import java.io.File
@@ -61,19 +60,30 @@ import java.io.File
  *
  * User can call [requireInstalled] to get resolution info.
  */
-class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRootExtension?) {
-    val resolver = KotlinRootNpmResolver(nodeJsSettings)
+class KotlinNpmResolutionManager internal constructor(
+//    @Transient private val nodeJsSettings: NodeJsRootExtension?,
+    val stateHolderProvider: Provider<KotlinNpmResolutionManagerStateHolder>,
+    val rootProjectName: String,
+    val rootProjectVersion: String,
+    val resolverStateHolder: Provider<KotlinRootNpmResolverStateHolder>,
+    internal val gradleNodeModulesProvider: Provider<GradleNodeModulesCache>,
+    internal val compositeNodeModulesProvider: Provider<CompositeNodeModulesCache>,
+    internal val mayBeUpToDateTasksRegistry: Provider<MayBeUpToDatePackageJsonTasksRegistry>
+) {
+    val resolver = KotlinRootNpmResolver(
+//        nodeJsSettings,
+        rootProjectName,
+        rootProjectVersion,
+        resolverStateHolder,
+        gradleNodeModulesProvider,
+        compositeNodeModulesProvider,
+        mayBeUpToDateTasksRegistry
+    )
 
-    internal abstract class KotlinNpmResolutionManagerStateHolder : BuildService<BuildServiceParameters.None> {
+    abstract class KotlinNpmResolutionManagerStateHolder : BuildService<BuildServiceParameters.None> {
         @Volatile
         internal var state: ResolutionState? = null
     }
-
-    private val stateHolderProvider = (nodeJsSettings ?: unavailableValueError("nodeJsSettings"))
-        .rootProject.gradle.sharedServices.registerIfAbsent(
-            "npm-resolution-manager-state-holder", KotlinNpmResolutionManagerStateHolder::class.java
-        ) {
-        }
 
     private val stateHolder get() = stateHolderProvider.get()
 
@@ -121,8 +131,7 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
     internal fun requireInstalled(
         services: ServiceRegistry,
         logger: Logger,
-        reason: String = ""
-    ) = installIfNeeded(reason = reason, services = services, logger = logger)
+    ) = installIfNeeded(services = services, logger = logger)
 
     internal fun requireConfiguringState(): KotlinRootNpmResolver =
         (this.state as? ResolutionState.Configuring ?: error("NPM Dependencies already resolved and installed")).resolver
@@ -130,10 +139,9 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
     internal fun isConfiguringState(): Boolean =
         this.state is ResolutionState.Configuring
 
-    internal fun prepare(logger: Logger) = prepareIfNeeded(requireNotPrepared = true, logger = logger)
+    internal fun prepare(logger: Logger) = prepareIfNeeded(logger = logger)
 
     internal fun installIfNeeded(
-        reason: String? = "",
         args: List<String> = emptyList(),
         services: ServiceRegistry,
         logger: Logger
@@ -148,7 +156,7 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
             }
 
             return try {
-                val installation = prepareIfNeeded(requireUpToDateReason = reason, logger = logger)
+                val installation = prepareIfNeeded(logger = logger)
                 val resolution = installation
                     .install(args, services, logger)
                 state = ResolutionState.Installed(resolution)
@@ -163,38 +171,21 @@ class KotlinNpmResolutionManager(@Transient private val nodeJsSettings: NodeJsRo
     internal val packageJsonFiles: Collection<File>
         get() = state.npmProjects.map { it.packageJsonFile }
 
-    /**
-     * @param requireUpToDateReason Check that project already resolved,
-     * or it is up-to-date but just not closed. Show given message if it is not.
-     * @param requireNotPrepared Check that project is not prepared
-     */
     private fun prepareIfNeeded(
-        requireUpToDateReason: String? = null,
-        requireNotPrepared: Boolean = false,
         logger: Logger
     ): KotlinRootNpmResolver.Installation {
-        fun alreadyResolved(installation: KotlinRootNpmResolver.Installation): KotlinRootNpmResolver.Installation {
-            if (requireNotPrepared) error("Project already prepared")
-            return installation
-        }
-
         val state0 = this.state
         return when (state0) {
             is ResolutionState.Prepared -> {
-                alreadyResolved(state0.preparedInstallation)
+                state0.preparedInstallation
             }
 
             is ResolutionState.Configuring -> {
                 synchronized(stateHolder) {
                     val state1 = this.state
                     when (state1) {
-                        is ResolutionState.Prepared -> alreadyResolved(state1.preparedInstallation)
+                        is ResolutionState.Prepared -> state1.preparedInstallation
                         is ResolutionState.Configuring -> {
-                            val upToDate = nodeJsSettings?.rootPackageJsonTaskProvider?.get()?.state?.upToDate ?: true
-                            if (requireUpToDateReason != null && !upToDate) {
-                                error("NPM dependencies should be resolved $requireUpToDateReason")
-                            }
-
                             state1.resolver.prepareInstallation(logger).also {
                                 this.state = ResolutionState.Prepared(it)
                             }
