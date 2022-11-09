@@ -51,13 +51,6 @@ constructor(
     @get:Nested
     internal val externalDependencies: Collection<NpmDependencyDeclaration>
         get() = compilationResolution.externalNpmDependencies
-            .map {
-                NpmDependencyDeclaration(
-                    scope = it.scope,
-                    name = it.name,
-                    version = it.version,
-                )
-            }
 
     private val publicPackageJsonTaskName by lazy {
         npmProject.publicPackageJsonTaskName

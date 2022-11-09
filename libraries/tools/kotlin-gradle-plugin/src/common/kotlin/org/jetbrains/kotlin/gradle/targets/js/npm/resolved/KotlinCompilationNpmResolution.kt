@@ -24,12 +24,4 @@ class KotlinCompilationNpmResolution(
 ) : Serializable {
     val externalNpmDependencies
         get() = _externalNpmDependencies
-            .map {
-                NpmDependency(
-                    objectFactory = objectFactory,
-                    scope = it.scope,
-                    name = it.name,
-                    version = it.version,
-                )
-            }
 }

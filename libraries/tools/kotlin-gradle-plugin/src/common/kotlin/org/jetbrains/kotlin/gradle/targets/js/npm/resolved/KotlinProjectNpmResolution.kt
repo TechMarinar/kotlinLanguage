@@ -16,16 +16,6 @@ class KotlinProjectNpmResolution(
     val npmProjects: List<KotlinCompilationNpmResolution>,
     val taskRequirements: Map<String, Collection<RequiredKotlinJsDependency>>
 ) {
-    val npmProjectsByNpmDependency: Map<NpmDependency, KotlinCompilationNpmResolution> by lazy {
-        mutableMapOf<NpmDependency, KotlinCompilationNpmResolution>().also { result ->
-            npmProjects.forEach { npmPackage ->
-                npmPackage.externalNpmDependencies.forEach { npmDependency ->
-                    result[npmDependency] = npmPackage
-                }
-            }
-        }
-    }
-
     val byCompilation by lazy { npmProjects.associateBy { it.npmProject.compilationName } }
 
     operator fun get(compilationName: String): KotlinCompilationNpmResolution {

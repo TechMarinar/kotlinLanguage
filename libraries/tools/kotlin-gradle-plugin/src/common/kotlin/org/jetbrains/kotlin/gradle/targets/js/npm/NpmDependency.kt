@@ -16,8 +16,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject.Companion.PACKAGE_J
 import java.io.File
 
 data class NpmDependency(
-    @Transient
-    val objectFactory: ObjectFactory?,
+    val objectFactory: ObjectFactory,
     val scope: Scope = Scope.NORMAL,
     private val name: String,
     private val version: String,
@@ -50,7 +49,7 @@ data class NpmDependency(
     override fun getTargetComponentId(): ComponentIdentifier? = null
     override fun resolve(): MutableSet<File> = mutableSetOf()
 
-    override fun getFiles(): FileCollection = objectFactory!!.fileCollection()
+    override fun getFiles(): FileCollection = objectFactory.fileCollection()
 
     override fun getBuildDependencies(): TaskDependency = TaskDependency { mutableSetOf() }
 
